@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZONER Widget</title>
+<style>
+  :root { --bg:#090d14; --card:#131a26; --border:#25324a; --text:#eef3fb; --muted:#8fa1bf; --green:#16c784; --red:#ea3943; --blue:#3b82f6; }
+  * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  body { background:var(--bg); color:var(--text); padding:10px; }
+  .box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; max-width:420px; margin:0 auto; }
+  .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .title { font-weight:800; font-size:13px; letter-spacing:.4px; }
+  .pill { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#192233; cursor:pointer; text-decoration:none; }
+  .pill.ok { color:var(--green); border-color:rgba(22,199,132,.4); }
+  .pill.bad { color:var(--red); border-color:rgba(234,57,67,.4); }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+  .kpi { background:#192233; border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
+  .kpi .l { font-size:10px; color:var(--muted); text-transform:uppercase; }
+  .kpi .v { font-size:16px; font-weight:800; margin-top:2px; }
+  .gate { font-size:11px; font-weight:700; padding:7px 9px; border-radius:8px; background:#192233; border:1px solid var(--border); margin-bottom:8px; color:var(--muted); }
+  .gate.ready { color:var(--green); border-color:rgba(22,199,132,.45); }
+  .btn { border:none; border-radius:9px; padding:10px; font-weight:800; font-size:12px; cursor:pointer; color:#fff; }
+  .up { background:var(--green); color:#052014; }
+  .dn { background:var(--red); }
+  .pos-card { background:#192233; border:1px solid var(--border); border-radius:9px; padding:8px; margin-top:6px; display:flex; justify-content:space-between; align-items:center; font-size:11px; }
+  .cash { background:#25324a; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:11px; font-weight:700; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="top">
+    <span class="title">ZONER WIDGET</span>
+    <div style="display:flex;gap:5px;">
+      <button id="wPause" class="pill" onclick="togglePause()">PAUSE</button>
+      <a href="/" class="pill">FULL APP</a>
+    </div>
+  </div>
+  <div class="row">
+    <div class="kpi"><div class="l">Bankroll</div><div class="v" id="wBal">$0.00</div></div>
+    <div class="kpi"><div class="l">Scaled Stake</div><div class="v" id="wStake">$5.00</div></div>
+    <div class="kpi"><div class="l">BTC Spot</div><div class="v" id="wSpot">$0</div></div>
+    <div class="kpi"><div class="l">Session PnL</div><div class="v" id="wPnl">$0.00</div></div>
+  </div>
+  <div id="wGate" class="gate">Connecting...</div>
+  <div class="row">
+    <button class="btn up" onclick="buy('UP')">UP <span id="wUp">$0.50</span></button>
+    <button class="btn dn" onclick="buy('DOWN')">DOWN <span id="wDn">$0.50</span></button>
+  </div>
+  <div style="font-size:11px;font-weight:700;color:var(--muted);margin-top:4px;">OPEN SCALPS (<span id="wCnt">0</span>)</div>
+  <div id="wOps"></div>
+</div>
+<script>
+let paused = false;
+async function tick() {
+  try {
+    const d = await (await fetch('/api/status')).json();
+    paused = d.paused;
+    const pb = document.getElementById('wPause');
+    pb.textContent = paused ? 'RESUME' : 'PAUSE';
+    pb.className = 'pill ' + (paused ? 'bad' : 'ok');
+    document.getElementById('wBal').textContent = '$' + Number(d.bankroll_usd || 0).toFixed(2);
+    document.getElementById('wStake').textContent = '$' + Number(d.current_stake_usd || 5).toFixed(2);
+    document.getElementById('wSpot').textContent = '$' + Number(d.spot || 0).toLocaleString(undefined,{maximumFractionDigits:0});
+    const pnl = Number(d.daily_pnl || 0);
+    const pe = document.getElementById('wPnl');
+    pe.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+    pe.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const g = document.getElementById('wGate');
+    g.textContent = (d.market ? d.market.seconds_left + 's · ' : '') + (d.gate.reason || '');
+    g.className = 'gate' + (d.gate.ready ? ' ready' : '');
+    document.getElementById('wUp').textContent = '$' + Number(d.book.up_ask || 0.5).toFixed(2);
+    document.getElementById('wDn').textContent = '$' + Number(d.book.down_ask || 0.5).toFixed(2);
+    const ops = d.open_positions || [];
+    document.getElementById('wCnt').textContent = ops.length;
+    document.getElementById('wOps').innerHTML = ops.map(p => {
+      const pct = Number(p.pnl_pct || 0);
+      return `<div class="pos-card"><div><strong>${p.side}</strong> · <span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span> (${p.held_sec||0}s)</div><button class="cash" onclick="cashOut('${p.trade_id}')">Cash Out</button></div>`;
+    }).join('') || '<div style="font-size:11px;color:var(--muted);margin-top:4px;">None</div>';
+  } catch(e) {}
+}
+async function buy(side) { await fetch('/api/manual-trade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({side})}); tick(); }
+async function cashOut(trade_id) { await fetch('/api/cash-out',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trade_id})}); tick(); }
+async function togglePause() { await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:!paused})}); tick(); }
+tick();
+setInterval(tick, 2500);
+</script>
+</body>
+</html>

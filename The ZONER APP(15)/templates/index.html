@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>The ZONER APP</title>
+<style>
+  :root {
+    --bg: #0b0f17;
+    --card: #131b29;
+    --soft: #1a2436;
+    --border: #26344d;
+    --text: #f3f6fc;
+    --muted: #93a4c3;
+    --green: #16c784;
+    --red: #ea3943;
+    --amber: #f59e0b;
+    --blue: #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: var(--bg); color: var(--text); padding: 14px; }
+  .wrap { max-width: 680px; margin: 0 auto; }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .logo { font-size: 18px; font-weight: 800; letter-spacing: .3px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  .pill { border: 1px solid var(--border); background: var(--soft); color: var(--text); font-size: 12px; font-weight: 700; padding: 7px 12px; border-radius: 999px; cursor: pointer; text-decoration: none; }
+  .pill.on { background: rgba(22,199,132,.14); border-color: rgba(22,199,132,.45); color: var(--green); }
+  .pill.off { background: rgba(234,57,67,.14); border-color: rgba(234,57,67,.45); color: var(--red); }
+  .pill.warn { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.45); color: var(--amber); }
+
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  @media (max-width: 520px) { .summary { grid-template-columns: 1fr; } }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .kpi-lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .kpi-val { font-size: 24px; font-weight: 800; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  .card-title { font-size: 15px; font-weight: 800; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+
+  .status-line { background: var(--soft); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 600; margin-bottom: 14px; line-height: 1.4; }
+  .status-line.ready { border-color: rgba(22,199,132,.5); color: var(--green); }
+
+  .bet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bet-btn { border: none; border-radius: 12px; padding: 15px 12px; font-size: 15px; font-weight: 800; cursor: pointer; text-align: center; }
+  .bet-up { background: var(--green); color: #042115; }
+  .bet-dn { background: var(--red); color: #fff; }
+  .bet-sub { display: block; font-size: 12px; font-weight: 700; opacity: .85; margin-top: 3px; }
+
+  .pos-card { background: var(--soft); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .cash-btn { background: var(--blue); color: #fff; border: none; border-radius: 9px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+  .hist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .hist-item:last-child { border-bottom: none; }
+  .green { color: var(--green); font-weight: 700; }
+  .red { color: var(--red); font-weight: 700; }
+  .muted { color: var(--muted); }
+
+  .settings-toggle { width: 100%; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
+  .settings-box { display: none; }
+  .settings-box.open { display: block; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  @media (max-width: 520px) { .form-row { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  .field input, .field select { width: 100%; background: var(--soft); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px; font-size: 14px; }
+  .save-btn { width: 100%; background: var(--blue); color: #fff; border: none; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 800; cursor: pointer; margin-top: 6px; }
+
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid var(--blue); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; display: none; z-index: 99; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="logo">THE ZONER APP</div>
+    <div class="actions">
+      <button id="modeBtn" class="pill" onclick="toggleMode()">...</button>
+      <button id="pauseBtn" class="pill" onclick="togglePause()">...</button>
+      <a href="/widget" onclick="window.open('/widget','zonerWidget','width=380,height=540');return false;" class="pill">Widget</a>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="kpi">
+      <div class="kpi-lbl">Polymarket Balance</div>
+      <div class="kpi-val" id="balVal">$0.00</div>
+      <div class="kpi-sub" id="btcSub">Bitcoin: $0</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Today's Profit</div>
+      <div class="kpi-val" id="pnlVal">$0.00</div>
+      <div class="kpi-sub" id="winSub">0 wins · 0 losses</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Next Bet Size</div>
+      <div class="kpi-val" id="stakeVal">$5.00</div>
+      <div class="kpi-sub" id="scaleSub">Grows as you win</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>Live Bitcoin Round</span>
+      <span class="muted" id="timerTxt" style="font-size:12px;">--s left</span>
+    </div>
+    <div id="statusLine" class="status-line">Connecting to Polymarket US...</div>
+    <div class="bet-grid">
+      <button class="bet-btn bet-up" onclick="buy('UP')">
+        BET UP
+        <span class="bet-sub" id="upPx">50¢</span>
+      </button>
+      <button class="bet-btn bet-dn" onclick="buy('DOWN')">
+        BET DOWN
+        <span class="bet-sub" id="dnPx">50¢</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <span>Active Trades (<span id="openCnt">0</span>)</span>
+      <span class="pill on" id="autoScalpPill" style="padding:4px 10px;font-size:11px;">Auto Cash-Out ON</span>
+    </div>
+    <div id="openList"><div class="muted" style="font-size:13px;">No active trades right now.</div></div>
+  </div>
+
+  <button class="settings-toggle" onclick="toggleSettings()">⚙ Settings (Bet Scaling &amp; Auto Cash-Out)</button>
+  <div id="settingsBox" class="card settings-box">
+    <div class="form-row">
+      <div class="field">
+        <label>Bet Sizing Rule</label>
+        <select id="s_sizing_mode">
+          <option value="scale_gains">Grow bet as I win</option>
+          <option value="pct_bankroll">% of my balance</option>
+          <option value="flat">Keep bet fixed</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Round Timeframe</label>
+        <select id="s_tf">
+          <option value="auto">Auto (Best Round)</option>
+          <option value="5m">5-Minute Rounds</option>
+          <option value="15m">15-Minute Rounds</option>
+          <option value="1h">1-Hour Rounds</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Starting Bet ($)</label><input id="s_stake" type="number" step="1" /></div>
+      <div class="field"><label>Max Bet Limit ($)</label><input id="s_max_stake" type="number" step="1" /></div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label>Auto Cash-Out</label>
+        <select id="s_scalp">
+          <option value="true">ON (Automatic)</option>
+          <option value="false">OFF (Wait until round ends)</option>
+        </select>
+      </div>
+      <div class="field"><label>Min Hold Before Cash-Out (sec)</label><input id="s_hold" type="number" step="1" /></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Take Profit (%)</label><input id="s_tp" type="number" step="1" /></div>
+      <div class="field"><label>Stop Loss (%)</label><input id="s_sl" type="number" step="1" /></div>
+    </div>
+    <button class="save-btn" onclick="saveSettings()">Save Settings</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Activity</div>
+    <div id="histList"><div class="muted" style="font-size:13px;">No trades yet.</div></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let state = null;
+let loadedSettings = false;
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 2400);
+}
+
+function toggleSettings() {
+  document.getElementById('settingsBox').classList.toggle('open');
+}
+
+function friendlyStatus(raw) {
+  const s = String(raw || '').toUpperCase();
+  if (s.includes('SCALP') && s.includes('TAKE_PROFIT')) return 'Cashed Out (Profit)';
+  if (s.includes('SCALP') && s.includes('TRAIL')) return 'Cashed Out (Locked Gain)';
+  if (s.includes('SCALP') && s.includes('STOP_LOSS')) return 'Cashed Out (Stop Loss)';
+  if (s.includes('SCALP') && s.includes('MANUAL')) return 'Cashed Out (Manual)';
+  if (s.includes('FILLED') || s.includes('OPEN')) return 'Bought';
+  if (s.includes('CANCELED')) return 'Skipped (Price Moved)';
+  if (s.includes('SETTLED_WIN')) return 'Won Round';
+  if (s.includes('SETTLED_LOSS')) return 'Lost Round';
+  return raw;
+}
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    state = d;
+
+    const mBtn = document.getElementById('modeBtn');
+    mBtn.textContent = d.config.dry_run ? 'PRACTICE MODE' : 'LIVE MONEY';
+    mBtn.className = 'pill ' + (d.config.dry_run ? 'warn' : 'on');
+
+    const pBtn = document.getElementById('pauseBtn');
+    pBtn.textContent = d.paused ? 'PAUSED (Tap to Start)' : 'BOT RUNNING';
+    pBtn.className = 'pill ' + (d.paused ? 'off' : 'on');
+
+    document.getElementById('balVal').textContent = '$' + Number(d.bankroll_usd || 0).toFixed(2);
+    document.getElementById('btcSub').textContent = 'Bitcoin: $' + Number(d.spot || 0).toLocaleString(undefined, {maximumFractionDigits: 0});
+
+    const pnl = Number(d.daily_pnl || 0);
+    const pEl = document.getElementById('pnlVal');
+    pEl.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+    pEl.className = 'kpi-val ' + (pnl >= 0 ? 'green' : 'red');
+    document.getElementById('winSub').textContent = `${d.wins} wins · ${d.losses} losses`;
+
+    document.getElementById('stakeVal').textContent = '$' + Number(d.current_stake_usd || 5).toFixed(2);
+    document.getElementById('scaleSub').textContent = d.config.sizing_mode === 'flat' ? 'Fixed bet size' : 'Grows as you win';
+
+    document.getElementById('timerTxt').textContent = d.market ? `${d.market.seconds_left}s left in round` : 'Finding round...';
+    const sl = document.getElementById('statusLine');
+    sl.textContent = d.paused ? 'Bot is paused. Tap "PAUSED" above to resume.' : (d.gate.reason || 'Watching Bitcoin...');
+    sl.className = 'status-line' + (!d.paused && d.gate.ready ? ' ready' : '');
+
+    document.getElementById('upPx').textContent = Math.round((d.book.up_ask || 0.5) * 100) + '¢ per share';
+    document.getElementById('dnPx').textContent = Math.round((d.book.down_ask || 0.5) * 100) + '¢ per share';
+
+    const tpPct = Math.round((d.config.scalp_take_profit_pct || 0.10) * 100);
+    const slPct = Math.round((d.config.scalp_stop_loss_pct || 0.05) * 100);
+    const scPill = document.getElementById('autoScalpPill');
+    scPill.textContent = d.config.scalp_enabled ? `Auto Cash-Out ON (+${tpPct}% / -${slPct}%)` : 'Auto Cash-Out OFF';
+    scPill.className = 'pill ' + (d.config.scalp_enabled ? 'on' : 'warn');
+
+    const ops = d.open_positions || [];
+    document.getElementById('openCnt').textContent = ops.length;
+    document.getElementById('openList').innerHTML = ops.length ? ops.map(p => {
+      const pct = Number(p.pnl_pct || 0);
+      const cls = pct >= 0 ? 'green' : 'red';
+      return `<div class="pos-card">
+        <div>
+          <div><strong>${p.side}</strong> · $${Number(p.stake_usd).toFixed(2)} <span class="${cls}">(${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span></div>
+          <div class="muted" style="font-size:12px;margin-top:2px;">Bought at ${Math.round(p.entry_price*100)}¢ · Now ${Math.round((p.current_bid||p.entry_price)*100)}¢ · Held ${p.held_sec||0}s</div>
+        </div>
+        <button class="cash-btn" onclick="cashOut('${p.trade_id}')">Cash Out</button>
+      </div>`;
+    }).join('') : '<div class="muted" style="font-size:13px;">No active trades right now.</div>';
+
+    const trades = (d.trades || []).slice(0, 12);
+    document.getElementById('histList').innerHTML = trades.length ? trades.map(t => {
+      const p = Number(t.pnl || 0);
+      const pTxt = p === 0 ? '' : ((p > 0 ? '+$' : '-$') + Math.abs(p).toFixed(2));
+      const pCls = p > 0 ? 'green' : (p < 0 ? 'red' : 'muted');
+      return `<div class="hist-item">
+        <div><strong>${t.side}</strong> <span class="muted">· ${t.time || ''}</span><div class="muted" style="font-size:12px;">${friendlyStatus(t.status)}</div></div>
+        <div class="${pCls}">${pTxt || ('$' + Number(t.stake || 0).toFixed(2))}</div>
+      </div>`;
+    }).join('') : '<div class="muted" style="font-size:13px;">No trades yet.</div>';
+
+    if (!loadedSettings) {
+      document.getElementById('s_sizing_mode').value = d.config.sizing_mode || 'scale_gains';
+      document.getElementById('s_tf').value = d.config.target_timeframe || 'auto';
+      document.getElementById('s_stake').value = d.config.stake_usd;
+      document.getElementById('s_max_stake').value = d.config.max_stake_usd;
+      document.getElementById('s_scalp').value = String(d.config.scalp_enabled);
+      document.getElementById('s_hold').value = d.config.scalp_min_hold_sec;
+      document.getElementById('s_tp').value = Math.round((d.config.scalp_take_profit_pct || 0.1) * 100);
+      document.getElementById('s_sl').value = Math.round((d.config.scalp_stop_loss_pct || 0.05) * 100);
+      loadedSettings = true;
+    }
+  } catch (e) {}
+}
+
+async function buy(side) {
+  showToast('Placing ' + side + ' bet...');
+  const r = await fetch('/api/manual-trade', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({side})});
+  const d = await r.json();
+  showToast(d.ok ? 'Bet placed!' : friendlyStatus(d.status || 'Not filled'));
+  refresh();
+}
+
+async function cashOut(trade_id) {
+  showToast('Cashing out...');
+  const r = await fetch('/api/cash-out', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({trade_id})});
+  const d = await r.json();
+  showToast(d.ok ? 'Cashed out!' : 'Could not cash out');
+  refresh();
+}
+
+async function toggleMode() {
+  if (!state) return;
+  await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dry_run: !state.config.dry_run})});
+  showToast(!state.config.dry_run ? 'Switched to Practice Mode' : 'Switched to Live Money');
+  refresh();
+}
+
+async function togglePause() {
+  if (!state) return;
+  await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({paused: !state.paused})});
+  refresh();
+}
+
+async function saveSettings() {
+  const payload = {
+    sizing_mode: document.getElementById('s_sizing_mode').value,
+    target_timeframe: document.getElementById('s_tf').value,
+    stake_usd: parseFloat(document.getElementById('s_stake').value),
+    max_stake_usd: parseFloat(document.getElementById('s_max_stake').value),
+    scalp_enabled: document.getElementById('s_scalp').value === 'true',
+    scalp_min_hold_sec: parseInt(document.getElementById('s_hold').value, 10),
+    scalp_take_profit_pct: parseFloat(document.getElementById('s_tp').value) / 100.0,
+    scalp_stop_loss_pct: parseFloat(document.getElementById('s_sl').value) / 100.0,
+  };
+  await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  showToast('Settings saved!');
+  document.getElementById('settingsBox').classList.remove('open');
+  refresh();
+}
+
+refresh();
+setInterval(refresh, 2500);
+</script>
+</body>
+</html>
