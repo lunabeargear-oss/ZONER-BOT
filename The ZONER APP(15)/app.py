@@ -18,7 +18,7 @@ ENV_PATH = os.path.join(BASE_DIR, ".env")
 
 app = Flask(__name__)
 cfg = BotConfig.from_env(ENV_PATH)
-discovery = MarketDiscovery(cfg)
+discovery = MarketDiscovery()
 executor = TradeExecutor(cfg)
 
 
