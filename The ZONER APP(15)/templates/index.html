@@ -1,335 +1,534 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>The ZONER APP</title>
-<style>
-  :root {
-    --bg: #0b0f17;
-    --card: #131b29;
-    --soft: #1a2436;
-    --border: #26344d;
-    --text: #f3f6fc;
-    --muted: #93a4c3;
-    --green: #16c784;
-    --red: #ea3943;
-    --amber: #f59e0b;
-    --blue: #3b82f6;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  body { background: var(--bg); color: var(--text); padding: 14px; }
-  .wrap { max-width: 680px; margin: 0 auto; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZONER-BOT — Live BTC Polymarket Scalper &amp; AI Guide</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card: #131a26;
+      --card-2: #192233;
+      --border: #263147;
+      --text: #e6edf7;
+      --muted: #93a4bd;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --blue: #3b82f6;
+      --accent: #6366f1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding-bottom: 90px;
+    }
+    .container { max-width: 1220px; margin: 0 auto; padding: 16px; }
+    .topbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+      font-size: 0.78rem; font-weight: 700; border: 1px solid var(--border); background: var(--card-2);
+    }
+    .pill.live { background: rgba(34,197,94,0.16); color: var(--green); border-color: rgba(34,197,94,0.4); }
+    .pill.paper { background: rgba(245,158,11,0.16); color: var(--amber); border-color: rgba(245,158,11,0.4); }
+    .pill.warn { background: rgba(239,68,68,0.16); color: var(--red); border-color: rgba(239,68,68,0.4); }
+    .pill.info { background: rgba(59,130,246,0.16); color: #60a5fa; border-color: rgba(59,130,246,0.4); }
 
-  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-  .logo { font-size: 18px; font-weight: 800; letter-spacing: .3px; }
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .col-6 { grid-column: span 6; }
+    .col-12 { grid-column: span 12; }
+    @media (max-width: 860px) { .col-6 { grid-column: span 12; } }
 
-  .pill { border: 1px solid var(--border); background: var(--soft); color: var(--text); font-size: 12px; font-weight: 700; padding: 7px 12px; border-radius: 999px; cursor: pointer; text-decoration: none; }
-  .pill.on { background: rgba(22,199,132,.14); border-color: rgba(22,199,132,.45); color: var(--green); }
-  .pill.off { background: rgba(234,57,67,.14); border-color: rgba(234,57,67,.45); color: var(--red); }
-  .pill.warn { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.45); color: var(--amber); }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+    }
+    .card h2 { margin: 0 0 12px; font-size: 0.98rem; color: #cbd5e1; display: flex; align-items: center; justify-content: space-between; }
 
-  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-  @media (max-width: 520px) { .summary { grid-template-columns: 1fr; } }
-  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
-  .kpi-lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-  .kpi-val { font-size: 24px; font-weight: 800; }
-  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .stat-box { background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .stat-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-val { font-size: 1.2rem; font-weight: 700; margin-top: 2px; }
 
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
-  .card-title { font-size: 15px; font-weight: 800; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .tf-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .tf-btn, .btn {
+      cursor: pointer; border: 1px solid var(--border); background: var(--card-2); color: var(--text);
+      padding: 7px 13px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; transition: 0.15s;
+    }
+    .tf-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn:hover, .tf-btn:hover { filter: brightness(1.12); }
+    .btn-green { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-red { background: #dc2626; border-color: #dc2626; color: #fff; }
+    .btn-blue { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn-amber { background: #d97706; border-color: #d97706; color: #fff; }
 
-  .status-line { background: var(--soft); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 600; margin-bottom: 14px; line-height: 1.4; }
-  .status-line.ready { border-color: rgba(22,199,132,.5); color: var(--green); }
+    .preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    @media (max-width: 600px) { .preset-grid { grid-template-columns: 1fr; } }
+    .preset-btn {
+      text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--card-2); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    }
+    .preset-btn.active { border-color: var(--blue); background: rgba(59,130,246,0.18); }
 
-  .bet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .bet-btn { border: none; border-radius: 12px; padding: 15px 12px; font-size: 15px; font-weight: 800; cursor: pointer; text-align: center; }
-  .bet-up { background: var(--green); color: #042115; }
-  .bet-dn { background: var(--red); color: #fff; }
-  .bet-sub { display: block; font-size: 12px; font-weight: 700; opacity: .85; margin-top: 3px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    label.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--muted); }
+    input, select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      padding: 7px 9px; border-radius: 7px; font-size: 0.86rem; width: 100%;
+    }
 
-  .pos-card { background: var(--soft); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .cash-btn { background: var(--blue); color: #fff; border: none; border-radius: 9px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
 
-  .hist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-  .hist-item:last-child { border-bottom: none; }
-  .green { color: var(--green); font-weight: 700; }
-  .red { color: var(--red); font-weight: 700; }
-  .muted { color: var(--muted); }
-
-  .settings-toggle { width: 100%; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 12px; }
-  .settings-box { display: none; }
-  .settings-box.open { display: block; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-  @media (max-width: 520px) { .form-row { grid-template-columns: 1fr; } }
-  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
-  .field input, .field select { width: 100%; background: var(--soft); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 10px; font-size: 14px; }
-  .save-btn { width: 100%; background: var(--blue); color: #fff; border: none; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 800; cursor: pointer; margin-top: 6px; }
-
-  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid var(--blue); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; display: none; z-index: 99; }
-</style>
+    /* Floating Zoner AI Guide Widget */
+    .ai-fab {
+      position: fixed; right: 20px; bottom: 20px; z-index: 1000;
+      display: flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #4f46e5, #2563eb); color: #fff;
+      border: none; border-radius: 999px; padding: 12px 18px; font-weight: 700; font-size: 0.9rem;
+      box-shadow: 0 10px 28px rgba(37, 99, 235, 0.45); cursor: pointer;
+    }
+    .ai-dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+    .ai-drawer {
+      position: fixed; right: 20px; bottom: 76px; width: 370px; max-width: calc(100vw - 24px);
+      max-height: 74vh; z-index: 1000; display: none; flex-direction: column;
+      background: #111827; border: 1px solid #334155; border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65); overflow: hidden;
+    }
+    .ai-drawer.open { display: flex; }
+    .ai-header {
+      padding: 12px 14px; background: #1e293b; border-bottom: 1px solid #334155;
+      display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 0.92rem;
+    }
+    .ai-briefing {
+      padding: 10px 14px; background: rgba(59, 130, 246, 0.1); border-bottom: 1px solid #263147; font-size: 0.81rem;
+    }
+    .ai-briefing .headline { font-weight: 700; color: #93c5fd; margin-bottom: 4px; }
+    .ai-briefing .guidance { color: #fde68a; margin-top: 6px; font-weight: 500; }
+    .ai-messages {
+      flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 0.83rem;
+    }
+    .ai-msg { padding: 8px 11px; border-radius: 10px; max-width: 92%; white-space: pre-line; }
+    .ai-msg.bot { background: #1e293b; color: #e2e8f0; align-self: flex-start; border: 1px solid #334155; }
+    .ai-msg.user { background: #2563eb; color: #fff; align-self: flex-end; }
+    .ai-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-top: 1px solid #263147; }
+    .ai-chip {
+      font-size: 0.74rem; padding: 4px 9px; border-radius: 999px; background: #1e293b;
+      border: 1px solid #334155; color: #cbd5e1; cursor: pointer;
+    }
+    .ai-chip:hover { border-color: #60a5fa; color: #fff; }
+    .ai-input-row { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid #263147; background: #0f172a; }
+    .ai-input-row input { flex: 1; }
+  </style>
 </head>
 <body>
-<div class="wrap">
+<div class="container">
   <div class="topbar">
-    <div class="logo">THE ZONER APP</div>
-    <div class="actions">
-      <button id="modeBtn" class="pill" onclick="toggleMode()">...</button>
-      <button id="pauseBtn" class="pill" onclick="togglePause()">...</button>
-      <a href="/widget" onclick="window.open('/widget','zonerWidget','width=380,height=540');return false;" class="pill">Widget</a>
+    <div class="brand">
+      <span>ZONER-BOT</span>
+      <span id="modeBadge" class="pill paper">PAPER</span>
+      <span id="apiBadge" class="pill warn">API CHECKING</span>
+      <span id="bookBadge" class="pill info">Book: --</span>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button class="btn" onclick="syncAccount()">Sync Bankroll</button>
+      <button id="pauseBtn" class="btn btn-amber" onclick="togglePause()">Pause Bot</button>
+      <button id="breakerBtn" class="btn btn-red" style="display:none;" onclick="resetBreaker()">Reset Breaker</button>
+      <a href="/widget" class="btn" style="text-decoration:none;">Compact Widget</a>
     </div>
   </div>
 
-  <div class="summary">
-    <div class="kpi">
-      <div class="kpi-lbl">Polymarket Balance</div>
-      <div class="kpi-val" id="balVal">$0.00</div>
-      <div class="kpi-sub" id="btcSub">Bitcoin: $0</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-lbl">Today's Profit</div>
-      <div class="kpi-val" id="pnlVal">$0.00</div>
-      <div class="kpi-sub" id="winSub">0 wins · 0 losses</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-lbl">Next Bet Size</div>
-      <div class="kpi-val" id="stakeVal">$5.00</div>
-      <div class="kpi-sub" id="scaleSub">Grows as you win</div>
-    </div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-label">Polymarket Cash</div><div class="stat-val" id="cashVal">$0.00</div></div>
+    <div class="stat-box"><div class="stat-label">BTC Spot</div><div class="stat-val" id="spotVal">$0.00</div></div>
+    <div class="stat-box"><div class="stat-label">Today's Net P&amp;L</div><div class="stat-val" id="pnlVal">$0.00</div></div>
+    <div class="stat-box"><div class="stat-label">Next Kelly Stake</div><div class="stat-val" id="stakeVal">$5.00</div></div>
+    <div class="stat-box"><div class="stat-label">Win Rate</div><div class="stat-val" id="winRateVal">0%</div></div>
+    <div class="stat-box"><div class="stat-label">Open Positions</div><div class="stat-val" id="openCountVal">0</div></div>
   </div>
 
-  <div class="card">
-    <div class="card-title">
-      <span>Live Bitcoin Round</span>
-      <span class="muted" id="timerTxt" style="font-size:12px;">--s left</span>
-    </div>
-    <div id="statusLine" class="status-line">Connecting to Polymarket US...</div>
-    <div class="bet-grid">
-      <button class="bet-btn bet-up" onclick="buy('UP')">
-        BET UP
-        <span class="bet-sub" id="upPx">50¢</span>
-      </button>
-      <button class="bet-btn bet-dn" onclick="buy('DOWN')">
-        BET DOWN
-        <span class="bet-sub" id="dnPx">50¢</span>
-      </button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">
-      <span>Active Trades (<span id="openCnt">0</span>)</span>
-      <span class="pill on" id="autoScalpPill" style="padding:4px 10px;font-size:11px;">Auto Cash-Out ON</span>
-    </div>
-    <div id="openList"><div class="muted" style="font-size:13px;">No active trades right now.</div></div>
-  </div>
-
-  <button class="settings-toggle" onclick="toggleSettings()">⚙ Settings (Bet Scaling &amp; Auto Cash-Out)</button>
-  <div id="settingsBox" class="card settings-box">
-    <div class="form-row">
-      <div class="field">
-        <label>Bet Sizing Rule</label>
-        <select id="s_sizing_mode">
-          <option value="scale_gains">Grow bet as I win</option>
-          <option value="pct_bankroll">% of my balance</option>
-          <option value="flat">Keep bet fixed</option>
-        </select>
+  <div class="grid">
+    <!-- Timeframe & BTC Matrix -->
+    <div class="card col-6">
+      <h2>
+        <span>BTC Movement &amp; Variation Matrix</span>
+        <span id="confluenceBadge" class="pill info">Confluence: --</span>
+      </h2>
+      <div class="tf-pills">
+        <button class="tf-btn" data-tf="5m" onclick="setTimeframe('5m')">5m</button>
+        <button class="tf-btn" data-tf="15m" onclick="setTimeframe('15m')">15m</button>
+        <button class="tf-btn" data-tf="1h" onclick="setTimeframe('1h')">1 Hour</button>
+        <button class="tf-btn" data-tf="1d" onclick="setTimeframe('1d')">1 Day</button>
+        <button class="tf-btn" data-tf="all" onclick="setTimeframe('all')">All</button>
       </div>
-      <div class="field">
-        <label>Round Timeframe</label>
-        <select id="s_tf">
-          <option value="auto">Auto (Best Round)</option>
-          <option value="5m">5-Minute Rounds</option>
-          <option value="15m">15-Minute Rounds</option>
-          <option value="1h">1-Hour Rounds</option>
-        </select>
+      <table>
+        <thead><tr><th>Window</th><th>Change</th><th>Range</th><th>RSI(14)</th><th>Bias</th></tr></thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Active Market & Signal Gate -->
+    <div class="card col-6">
+      <h2>
+        <span>Active Market &amp; Book</span>
+        <span id="marketLeftBadge" class="pill info">--s left</span>
+      </h2>
+      <div id="marketTitle" style="font-weight:700; margin-bottom:8px;">Scanning active BTC markets...</div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:0.86rem; color:var(--muted); margin-bottom:10px;">
+        <span>UP Ask: <strong id="upAsk" style="color:var(--text)">$0.52</strong></span>
+        <span>DOWN Ask: <strong id="downAsk" style="color:var(--text)">$0.52</strong></span>
+        <span>Spread: <strong id="spreadVal" style="color:var(--text)">$0.04</strong></span>
+        <span>Book Depth: <strong id="depthVal" style="color:var(--text)">0sh</strong></span>
+      </div>
+      <div id="gateBox" style="padding:10px 12px; border-radius:8px; background:var(--card-2); border:1px solid var(--border); margin-bottom:12px; font-size:0.86rem;">
+        Signal: <strong id="gateText">Loading...</strong>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-green" style="flex:1;" onclick="manualTrade('UP')">Buy UP (With Triggers)</button>
+        <button class="btn btn-red" style="flex:1;" onclick="manualTrade('DOWN')">Buy DOWN (With Triggers)</button>
       </div>
     </div>
-    <div class="form-row">
-      <div class="field"><label>Starting Bet ($)</label><input id="s_stake" type="number" step="1" /></div>
-      <div class="field"><label>Max Bet Limit ($)</label><input id="s_max_stake" type="number" step="1" /></div>
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label>Auto Cash-Out</label>
-        <select id="s_scalp">
-          <option value="true">ON (Automatic)</option>
-          <option value="false">OFF (Wait until round ends)</option>
-        </select>
-      </div>
-      <div class="field"><label>Min Hold Before Cash-Out (sec)</label><input id="s_hold" type="number" step="1" /></div>
-    </div>
-    <div class="form-row">
-      <div class="field"><label>Take Profit (%)</label><input id="s_tp" type="number" step="1" /></div>
-      <div class="field"><label>Stop Loss (%)</label><input id="s_sl" type="number" step="1" /></div>
-    </div>
-    <button class="save-btn" onclick="saveSettings()">Save Settings</button>
-  </div>
 
-  <div class="card">
-    <div class="card-title">Recent Activity</div>
-    <div id="histList"><div class="muted" style="font-size:13px;">No trades yet.</div></div>
+    <!-- Risk & Auto-Scalping Profiles -->
+    <div class="card col-6">
+      <h2><span>Risk &amp; Auto-Scalping Profiles</span><span class="pill info">1-Click Preset</span></h2>
+      <div class="preset-grid" id="presetGrid">
+        <button class="preset-btn" data-p="low" onclick="applyPreset('low')">1. Small % Gains / Low Risk</button>
+        <button class="preset-btn" data-p="moderate" onclick="applyPreset('moderate')">2. Moderate Gain &amp; Risk</button>
+        <button class="preset-btn" data-p="high" onclick="applyPreset('high')">3. Higher % Gains / Higher Risk</button>
+        <button class="preset-btn" data-p="micro" onclick="applyPreset('micro')">4. Micro-Scalp / Ultra-Safe</button>
+      </div>
+    </div>
+
+    <!-- Pre-Trade Sell Triggers -->
+    <div class="card col-6">
+      <h2><span>Built-In Sell Triggers (Locked Prior to Purchase)</span></h2>
+      <div class="form-grid">
+        <label class="field">Take-Profit (%)<input type="number" step="0.5" id="tpInput"></label>
+        <label class="field">Stop-Loss (%)<input type="number" step="0.5" id="slInput"></label>
+        <label class="field">Trailing Stop (%)<input type="number" step="0.5" id="trailInput"></label>
+        <label class="field">Breakeven Move (%)<input type="number" step="0.5" id="beInput"></label>
+        <label class="field">Min Hold (sec)<input type="number" id="minHoldInput"></label>
+        <label class="field">Max Hold (sec)<input type="number" id="maxHoldInput"></label>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-blue" onclick="saveTriggers()">Save Triggers</button>
+      </div>
+    </div>
+
+    <!-- Bankroll Growth & Safety Guardrails -->
+    <div class="card col-12">
+      <h2><span>Bankroll Growth, Compounding &amp; Safety Guardrails</span></h2>
+      <div class="form-grid">
+        <label class="field">Trading Mode
+          <select id="modeSelect">
+            <option value="false">LIVE (Real Money)</option>
+            <option value="true">PAPER (Dry Run)</option>
+          </select>
+        </label>
+        <label class="field">Base Stake ($)<input type="number" step="1" id="stakeInput"></label>
+        <label class="field">Max Stake ($)<input type="number" step="1" id="maxStakeInput"></label>
+        <label class="field">Kelly Fraction<input type="number" step="0.05" id="kellyInput"></label>
+        <label class="field">Min +EV Edge (%)<input type="number" step="0.5" id="evInput"></label>
+        <label class="field">Daily Loss Limit ($)<input type="number" step="1" id="lossLimitInput"></label>
+        <label class="field">Anti-Greed Pause ($)<input type="number" step="1" id="greedInput"></label>
+        <label class="field">Profit-Lock Floor (%)<input type="number" step="5" id="lockInput"></label>
+        <label class="field">Max Open Positions<input type="number" id="maxOpenInput"></label>
+        <label class="field">Max Loss Streak<input type="number" id="streakInput"></label>
+        <label class="field">Min Book Depth (sh)<input type="number" id="depthInput"></label>
+        <label class="field">Max Spread ($)<input type="number" step="0.01" id="spreadInput"></label>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-blue" onclick="saveSafety()">Apply Growth &amp; Safety Settings</button>
+      </div>
+    </div>
+
+    <!-- Open Positions -->
+    <div class="card col-6">
+      <h2><span>Open Positions</span></h2>
+      <table>
+        <thead><tr><th>Market</th><th>Side</th><th>Entry</th><th>Stake</th><th>Action</th></tr></thead>
+        <tbody id="openBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Recent Trades -->
+    <div class="card col-6">
+      <h2><span>Recent Trades</span></h2>
+      <table>
+        <thead><tr><th>Time</th><th>Side</th><th>Price</th><th>Mode</th><th>Status</th><th>P&amp;L</th></tr></thead>
+        <tbody id="tradesBody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
-<div id="toast" class="toast"></div>
+<!-- Floating Zoner AI Guide Widget -->
+<button class="ai-fab" onclick="toggleAiDrawer()">
+  <span class="ai-dot" id="aiFabDot"></span>
+  <span>AI Guide</span>
+</button>
+
+<div class="ai-drawer" id="aiDrawer">
+  <div class="ai-header">
+    <span>Zoner AI Guide — Live Assistant</span>
+    <button class="btn" style="padding:3px 8px;" onclick="toggleAiDrawer()">✕</button>
+  </div>
+  <div class="ai-briefing" id="aiBriefing">
+    <div class="headline" id="aiHeadline">Scanning live market &amp; bot status...</div>
+    <div id="aiBullets"></div>
+    <div class="guidance" id="aiGuidance"></div>
+  </div>
+  <div class="ai-messages" id="aiMessages">
+    <div class="ai-msg bot">Hi! I'm watching your bot in real time. Tap a quick question below or ask me anything about what's happening right now.</div>
+  </div>
+  <div class="ai-chips">
+    <button class="ai-chip" onclick="askQuick('Why is it not trading?')">Why isn't it trading?</button>
+    <button class="ai-chip" onclick="askQuick('Am I in Paper or Live mode?')">Paper vs Live?</button>
+    <button class="ai-chip" onclick="askQuick('Explain my risk and sell triggers')">Risk &amp; triggers</button>
+    <button class="ai-chip" onclick="askQuick('Check API and book depth')">API &amp; book</button>
+  </div>
+  <div class="ai-input-row">
+    <input type="text" id="aiInput" placeholder="Ask what's going on..." onkeydown="if(event.key==='Enter') sendAiQuestion()" />
+    <button class="btn btn-blue" onclick="sendAiQuestion()">Ask</button>
+  </div>
+</div>
 
 <script>
-let state = null;
-let loadedSettings = false;
+let editingConfig = false;
+document.querySelectorAll('input, select').forEach(el => {
+  el.addEventListener('focus', () => editingConfig = true);
+  el.addEventListener('blur', () => setTimeout(() => editingConfig = false, 400));
+});
 
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 2400);
+function toggleAiDrawer() {
+  document.getElementById('aiDrawer').classList.toggle('open');
 }
 
-function toggleSettings() {
-  document.getElementById('settingsBox').classList.toggle('open');
+function appendAiMsg(text, who) {
+  const box = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = 'ai-msg ' + who;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
 }
 
-function friendlyStatus(raw) {
-  const s = String(raw || '').toUpperCase();
-  if (s.includes('SCALP') && s.includes('TAKE_PROFIT')) return 'Cashed Out (Profit)';
-  if (s.includes('SCALP') && s.includes('TRAIL')) return 'Cashed Out (Locked Gain)';
-  if (s.includes('SCALP') && s.includes('STOP_LOSS')) return 'Cashed Out (Stop Loss)';
-  if (s.includes('SCALP') && s.includes('MANUAL')) return 'Cashed Out (Manual)';
-  if (s.includes('FILLED') || s.includes('OPEN')) return 'Bought';
-  if (s.includes('CANCELED')) return 'Skipped (Price Moved)';
-  if (s.includes('SETTLED_WIN')) return 'Won Round';
-  if (s.includes('SETTLED_LOSS')) return 'Lost Round';
-  return raw;
-}
-
-async function refresh() {
-  try {
-    const r = await fetch('/api/status');
-    const d = await r.json();
-    state = d;
-
-    const mBtn = document.getElementById('modeBtn');
-    mBtn.textContent = d.config.dry_run ? 'PRACTICE MODE' : 'LIVE MONEY';
-    mBtn.className = 'pill ' + (d.config.dry_run ? 'warn' : 'on');
-
-    const pBtn = document.getElementById('pauseBtn');
-    pBtn.textContent = d.paused ? 'PAUSED (Tap to Start)' : 'BOT RUNNING';
-    pBtn.className = 'pill ' + (d.paused ? 'off' : 'on');
-
-    document.getElementById('balVal').textContent = '$' + Number(d.bankroll_usd || 0).toFixed(2);
-    document.getElementById('btcSub').textContent = 'Bitcoin: $' + Number(d.spot || 0).toLocaleString(undefined, {maximumFractionDigits: 0});
-
-    const pnl = Number(d.daily_pnl || 0);
-    const pEl = document.getElementById('pnlVal');
-    pEl.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
-    pEl.className = 'kpi-val ' + (pnl >= 0 ? 'green' : 'red');
-    document.getElementById('winSub').textContent = `${d.wins} wins · ${d.losses} losses`;
-
-    document.getElementById('stakeVal').textContent = '$' + Number(d.current_stake_usd || 5).toFixed(2);
-    document.getElementById('scaleSub').textContent = d.config.sizing_mode === 'flat' ? 'Fixed bet size' : 'Grows as you win';
-
-    document.getElementById('timerTxt').textContent = d.market ? `${d.market.seconds_left}s left in round` : 'Finding round...';
-    const sl = document.getElementById('statusLine');
-    sl.textContent = d.paused ? 'Bot is paused. Tap "PAUSED" above to resume.' : (d.gate.reason || 'Watching Bitcoin...');
-    sl.className = 'status-line' + (!d.paused && d.gate.ready ? ' ready' : '');
-
-    document.getElementById('upPx').textContent = Math.round((d.book.up_ask || 0.5) * 100) + '¢ per share';
-    document.getElementById('dnPx').textContent = Math.round((d.book.down_ask || 0.5) * 100) + '¢ per share';
-
-    const tpPct = Math.round((d.config.scalp_take_profit_pct || 0.10) * 100);
-    const slPct = Math.round((d.config.scalp_stop_loss_pct || 0.05) * 100);
-    const scPill = document.getElementById('autoScalpPill');
-    scPill.textContent = d.config.scalp_enabled ? `Auto Cash-Out ON (+${tpPct}% / -${slPct}%)` : 'Auto Cash-Out OFF';
-    scPill.className = 'pill ' + (d.config.scalp_enabled ? 'on' : 'warn');
-
-    const ops = d.open_positions || [];
-    document.getElementById('openCnt').textContent = ops.length;
-    document.getElementById('openList').innerHTML = ops.length ? ops.map(p => {
-      const pct = Number(p.pnl_pct || 0);
-      const cls = pct >= 0 ? 'green' : 'red';
-      return `<div class="pos-card">
-        <div>
-          <div><strong>${p.side}</strong> · $${Number(p.stake_usd).toFixed(2)} <span class="${cls}">(${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)</span></div>
-          <div class="muted" style="font-size:12px;margin-top:2px;">Bought at ${Math.round(p.entry_price*100)}¢ · Now ${Math.round((p.current_bid||p.entry_price)*100)}¢ · Held ${p.held_sec||0}s</div>
-        </div>
-        <button class="cash-btn" onclick="cashOut('${p.trade_id}')">Cash Out</button>
-      </div>`;
-    }).join('') : '<div class="muted" style="font-size:13px;">No active trades right now.</div>';
-
-    const trades = (d.trades || []).slice(0, 12);
-    document.getElementById('histList').innerHTML = trades.length ? trades.map(t => {
-      const p = Number(t.pnl || 0);
-      const pTxt = p === 0 ? '' : ((p > 0 ? '+$' : '-$') + Math.abs(p).toFixed(2));
-      const pCls = p > 0 ? 'green' : (p < 0 ? 'red' : 'muted');
-      return `<div class="hist-item">
-        <div><strong>${t.side}</strong> <span class="muted">· ${t.time || ''}</span><div class="muted" style="font-size:12px;">${friendlyStatus(t.status)}</div></div>
-        <div class="${pCls}">${pTxt || ('$' + Number(t.stake || 0).toFixed(2))}</div>
-      </div>`;
-    }).join('') : '<div class="muted" style="font-size:13px;">No trades yet.</div>';
-
-    if (!loadedSettings) {
-      document.getElementById('s_sizing_mode').value = d.config.sizing_mode || 'scale_gains';
-      document.getElementById('s_tf').value = d.config.target_timeframe || 'auto';
-      document.getElementById('s_stake').value = d.config.stake_usd;
-      document.getElementById('s_max_stake').value = d.config.max_stake_usd;
-      document.getElementById('s_scalp').value = String(d.config.scalp_enabled);
-      document.getElementById('s_hold').value = d.config.scalp_min_hold_sec;
-      document.getElementById('s_tp').value = Math.round((d.config.scalp_take_profit_pct || 0.1) * 100);
-      document.getElementById('s_sl').value = Math.round((d.config.scalp_stop_loss_pct || 0.05) * 100);
-      loadedSettings = true;
-    }
-  } catch (e) {}
-}
-
-async function buy(side) {
-  showToast('Placing ' + side + ' bet...');
-  const r = await fetch('/api/manual-trade', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({side})});
+async function askQuick(q) {
+  appendAiMsg(q, 'user');
+  const r = await fetch('/api/ai-guide', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({question: q}) });
   const d = await r.json();
-  showToast(d.ok ? 'Bet placed!' : friendlyStatus(d.status || 'Not filled'));
-  refresh();
+  appendAiMsg(d.reply || 'No response.', 'bot');
 }
 
-async function cashOut(trade_id) {
-  showToast('Cashing out...');
-  const r = await fetch('/api/cash-out', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({trade_id})});
+async function sendAiQuestion() {
+  const inp = document.getElementById('aiInput');
+  const q = inp.value.trim();
+  if (!q) return;
+  inp.value = '';
+  await askQuick(q);
+}
+
+async function setTimeframe(tf) {
+  await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_timeframe: tf}) });
+  refreshStatus();
+}
+
+async function applyPreset(profile) {
+  await fetch('/api/preset', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({profile}) });
+  editingConfig = false;
+  refreshStatus(true);
+}
+
+async function saveTriggers() {
+  const payload = {
+    scalp_take_profit_pct: parseFloat(document.getElementById('tpInput').value || 10) / 100,
+    scalp_stop_loss_pct: parseFloat(document.getElementById('slInput').value || 5) / 100,
+    scalp_trailing_stop_pct: parseFloat(document.getElementById('trailInput').value || 4) / 100,
+    scalp_breakeven_pct: parseFloat(document.getElementById('beInput').value || 5) / 100,
+    scalp_min_hold_sec: parseInt(document.getElementById('minHoldInput').value || 8),
+    scalp_max_hold_sec: parseInt(document.getElementById('maxHoldInput').value || 300),
+  };
+  await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  editingConfig = false;
+  refreshStatus(true);
+}
+
+async function saveSafety() {
+  const payload = {
+    dry_run: document.getElementById('modeSelect').value === 'true',
+    stake_usd: parseFloat(document.getElementById('stakeInput').value || 5),
+    max_stake_usd: parseFloat(document.getElementById('maxStakeInput').value || 25),
+    kelly_fraction: parseFloat(document.getElementById('kellyInput').value || 0.25),
+    min_ev_edge: parseFloat(document.getElementById('evInput').value || 3) / 100,
+    max_daily_loss_usd: parseFloat(document.getElementById('lossLimitInput').value || 25),
+    anti_greed_profit_usd: parseFloat(document.getElementById('greedInput').value || 40),
+    profit_lock_pct: parseFloat(document.getElementById('lockInput').value || 50) / 100,
+    max_open_positions: parseInt(document.getElementById('maxOpenInput').value || 3),
+    max_consecutive_losses: parseInt(document.getElementById('streakInput').value || 3),
+    min_ask_depth_shares: parseInt(document.getElementById('depthInput').value || 35),
+    max_spread: parseFloat(document.getElementById('spreadInput').value || 0.06),
+  };
+  await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  editingConfig = false;
+  refreshStatus(true);
+}
+
+async function manualTrade(side) {
+  const r = await fetch('/api/manual-trade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({side}) });
   const d = await r.json();
-  showToast(d.ok ? 'Cashed out!' : 'Could not cash out');
-  refresh();
+  if (!d.ok && d.error) alert(d.error);
+  refreshStatus();
 }
 
-async function toggleMode() {
-  if (!state) return;
-  await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({dry_run: !state.config.dry_run})});
-  showToast(!state.config.dry_run ? 'Switched to Practice Mode' : 'Switched to Live Money');
-  refresh();
+async function closePosition(tradeId) {
+  await fetch('/api/close-position', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({trade_id: tradeId}) });
+  refreshStatus();
+}
+
+async function syncAccount() {
+  await fetch('/api/sync-account', { method:'POST' });
+  refreshStatus();
 }
 
 async function togglePause() {
-  if (!state) return;
-  await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({paused: !state.paused})});
-  refresh();
+  const isPaused = document.getElementById('pauseBtn').dataset.paused === 'true';
+  await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({paused: !isPaused}) });
+  refreshStatus();
 }
 
-async function saveSettings() {
-  const payload = {
-    sizing_mode: document.getElementById('s_sizing_mode').value,
-    target_timeframe: document.getElementById('s_tf').value,
-    stake_usd: parseFloat(document.getElementById('s_stake').value),
-    max_stake_usd: parseFloat(document.getElementById('s_max_stake').value),
-    scalp_enabled: document.getElementById('s_scalp').value === 'true',
-    scalp_min_hold_sec: parseInt(document.getElementById('s_hold').value, 10),
-    scalp_take_profit_pct: parseFloat(document.getElementById('s_tp').value) / 100.0,
-    scalp_stop_loss_pct: parseFloat(document.getElementById('s_sl').value) / 100.0,
-  };
-  await fetch('/api/config', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
-  showToast('Settings saved!');
-  document.getElementById('settingsBox').classList.remove('open');
-  refresh();
+async function resetBreaker() {
+  await fetch('/api/reset-breaker', { method:'POST' });
+  refreshStatus();
 }
 
-refresh();
-setInterval(refresh, 2500);
+async function refreshStatus(forceInputs = false) {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const c = d.config || {};
+    const m = d.metrics || {};
+
+    const modeBadge = document.getElementById('modeBadge');
+    modeBadge.textContent = c.dry_run ? 'PAPER' : 'LIVE';
+    modeBadge.className = 'pill ' + (c.dry_run ? 'paper' : 'live');
+
+    const apiBadge = document.getElementById('apiBadge');
+    apiBadge.textContent = d.account?.connected ? 'API CONNECTED' : (d.keys_configured ? 'API ERROR' : 'API KEYS MISSING');
+    apiBadge.className = 'pill ' + (d.account?.connected ? 'live' : 'warn');
+
+    const bookBadge = document.getElementById('bookBadge');
+    bookBadge.textContent = d.book?.book_source || 'Fallback';
+    bookBadge.className = 'pill ' + (d.book?.book_source === 'Live Book' ? 'live' : 'info');
+
+    document.getElementById('cashVal').textContent = '$' + Number(d.account?.cash_usd || 0).toFixed(2);
+    document.getElementById('spotVal').textContent = '$' + Number(d.spot || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    const pnlEl = document.getElementById('pnlVal');
+    const pnl = Number(m.net_pnl || 0);
+    pnlEl.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+    pnlEl.className = 'stat-val ' + (pnl >= 0 ? 'pos' : 'neg');
+    document.getElementById('stakeVal').textContent = '$' + Number(d.next_stake_usd || c.stake_usd || 5).toFixed(2);
+    document.getElementById('winRateVal').textContent = Number(m.win_rate || 0).toFixed(1) + '%';
+    document.getElementById('openCountVal').textContent = m.open_count || 0;
+
+    const pBtn = document.getElementById('pauseBtn');
+    pBtn.dataset.paused = d.paused ? 'true' : 'false';
+    pBtn.textContent = d.paused ? 'Resume Bot' : 'Pause Bot';
+    document.getElementById('breakerBtn').style.display = d.breaker_tripped ? 'inline-flex' : 'none';
+
+    document.querySelectorAll('.tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === c.target_timeframe));
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.p === c.risk_profile));
+
+    // BTC Matrix
+    const mat = d.btc_matrix || {};
+    const conf = mat.confluence || {};
+    document.getElementById('confluenceBadge').textContent = `Confluence: ${conf.direction || 'NEUTRAL'} (${conf.agreement_pct || 0}%)`;
+    const rows = ['5m','15m','1h','1d'].map(tf => {
+      const row = mat[tf] || {};
+      const chg = Number(row.change_pct || 0);
+      return `<tr><td><strong>${tf.toUpperCase()}</strong></td><td class="${chg>=0?'pos':'neg'}">${chg>=0?'+':''}${chg.toFixed(3)}%</td><td>${Number(row.range_pct||0).toFixed(3)}%</td><td>${row.rsi ?? 50}</td><td>${row.bias || 'FLAT'}</td></tr>`;
+    }).join('');
+    document.getElementById('matrixBody').innerHTML = rows;
+
+    // Market & Book
+    document.getElementById('marketTitle').textContent = d.market ? d.market.title : `No active ${String(c.target_timeframe||'all').toUpperCase()} BTC market`;
+    document.getElementById('marketLeftBadge').textContent = d.market ? `${d.market.seconds_left}s left` : '--';
+    document.getElementById('upAsk').textContent = '$' + Number(d.book?.up_ask || 0.52).toFixed(2);
+    document.getElementById('downAsk').textContent = '$' + Number(d.book?.down_ask || 0.52).toFixed(2);
+    document.getElementById('spreadVal').textContent = '$' + Number(d.book?.spread || 0).toFixed(2);
+    document.getElementById('depthVal').textContent = `${Math.round(d.book?.ask_depth || 0)}sh`;
+    document.getElementById('gateText').textContent = d.gate?.reason || 'Scanning...';
+
+    if (!editingConfig || forceInputs) {
+      document.getElementById('tpInput').value = (Number(c.scalp_take_profit_pct || 0.1) * 100).toFixed(1);
+      document.getElementById('slInput').value = (Number(c.scalp_stop_loss_pct || 0.05) * 100).toFixed(1);
+      document.getElementById('trailInput').value = (Number(c.scalp_trailing_stop_pct || 0.04) * 100).toFixed(1);
+      document.getElementById('beInput').value = (Number(c.scalp_breakeven_pct || 0.05) * 100).toFixed(1);
+      document.getElementById('minHoldInput').value = c.scalp_min_hold_sec ?? 8;
+      document.getElementById('maxHoldInput').value = c.scalp_max_hold_sec ?? 300;
+
+      document.getElementById('modeSelect').value = c.dry_run ? 'true' : 'false';
+      document.getElementById('stakeInput').value = c.stake_usd ?? 5;
+      document.getElementById('maxStakeInput').value = c.max_stake_usd ?? 25;
+      document.getElementById('kellyInput').value = c.kelly_fraction ?? 0.25;
+      document.getElementById('evInput').value = (Number(c.min_ev_edge || 0.03) * 100).toFixed(1);
+      document.getElementById('lossLimitInput').value = c.max_daily_loss_usd ?? 25;
+      document.getElementById('greedInput').value = c.anti_greed_profit_usd ?? 40;
+      document.getElementById('lockInput').value = (Number(c.profit_lock_pct || 0.5) * 100).toFixed(0);
+      document.getElementById('maxOpenInput').value = c.max_open_positions ?? 3;
+      document.getElementById('streakInput').value = c.max_consecutive_losses ?? 3;
+      document.getElementById('depthInput').value = c.min_ask_depth_shares ?? 35;
+      document.getElementById('spreadInput').value = c.max_spread ?? 0.06;
+    }
+
+    // Open Positions
+    const openRows = (d.open_positions || []).map(p => `
+      <tr>
+        <td>${String(p.slug||'').slice(-18)}</td>
+        <td><strong>${p.side}</strong></td>
+        <td>$${Number(p.entry_price||0).toFixed(2)}</td>
+        <td>$${Number(p.stake_usd||0).toFixed(2)}</td>
+        <td><button class="btn btn-amber" style="padding:4px 8px;font-size:0.76rem;" onclick="closePosition('${p.trade_id}')">Cash Out</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="5" style="color:var(--muted)">No open positions</td></tr>';
+    document.getElementById('openBody').innerHTML = openRows;
+
+    // Recent Trades
+    const tradeRows = (d.trades || []).slice(0, 12).map(t => {
+      const tpnl = Number(t.pnl || 0);
+      return `<tr>
+        <td>${t.time || ''}</td>
+        <td><strong>${t.side}</strong></td>
+        <td>$${Number(t.price||0).toFixed(2)}</td>
+        <td>${t.mode || ''}</td>
+        <td style="font-size:0.75rem;">${t.status || ''}</td>
+        <td class="${tpnl>=0?'pos':'neg'}">${tpnl>=0?'+':''}$${tpnl.toFixed(2)}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="color:var(--muted)">No trades yet</td></tr>';
+    document.getElementById('tradesBody').innerHTML = tradeRows;
+
+    // Update AI Guide Briefing
+    const b = d.ai_briefing || {};
+    document.getElementById('aiHeadline').textContent = b.headline || '';
+    document.getElementById('aiBullets').innerHTML = (b.bullets || []).map(x => `<div style="margin-top:3px;color:#cbd5e1;">• ${x}</div>`).join('');
+    document.getElementById('aiGuidance').textContent = b.guidance || '';
+    const dot = document.getElementById('aiFabDot');
+    dot.style.background = b.mood === 'warn' ? '#f59e0b' : (b.mood === 'good' ? '#4ade80' : '#60a5fa');
+  } catch (e) {}
+}
+
+refreshStatus(true);
+setInterval(() => refreshStatus(false), 4000);
 </script>
 </body>
 </html>

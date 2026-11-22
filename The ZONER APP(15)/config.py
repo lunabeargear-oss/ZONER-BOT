@@ -1,126 +1,66 @@
 import os
 from dataclasses import dataclass, asdict
+from dotenv import load_dotenv
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = None
+load_dotenv()
 
-
-def _parse_bool(val, default=False):
-    if val is None:
-        return default
-    if isinstance(val, bool):
-        return val
-    return str(val).strip().lower() in ("1", "true", "yes", "on")
-
-
-def _load_env_fallback(env_path):
-    if not env_path or not os.path.exists(env_path):
-        return
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-
-
-RISK_PROFILES = {
-    "conservative": {
-        "label": "Small % Gains / Low Risk",
-        "description": "Tight stop-loss, modest profit target, strict entry filters, and low daily drawdown.",
-        "sizing_mode": "pct_bankroll",
-        "stake_usd": 3.0,
-        "max_stake_usd": 10.0,
-        "bankroll_pct": 0.015,
+RISK_PRESETS = {
+    "low": {
+        "label": "1. Small % Gains / Low Risk",
         "scalp_take_profit_pct": 0.06,
         "scalp_stop_loss_pct": 0.03,
         "scalp_trailing_stop_pct": 0.025,
+        "scalp_breakeven_pct": 0.03,
         "scalp_max_hold_sec": 180,
-        "scalp_min_hold_sec": 8,
-        "predictor_min_score": 0.65,
-        "min_spot_move_pct": 0.0015,
-        "max_spread": 0.03,
-        "min_ask_depth_shares": 75,
-        "min_seconds_left": 45,
-        "max_daily_loss_usd": 20.0,
-        "daily_profit_target_usd": 25.0,
-        "max_open_positions": 3,
-        "max_consecutive_losses": 2,
-        "max_drawdown_pct": 0.10,
+        "kelly_fraction": 0.15,
+        "min_ev_edge": 0.04,
+        "min_ask_depth_shares": 50,
+        "predictor_min_score": 0.58,
     },
     "moderate": {
-        "label": "Moderate Gain & Risk",
-        "description": "Balanced passive-income scalping with 2:1 reward-to-risk ratio and trailing lock.",
-        "sizing_mode": "scale_gains",
-        "stake_usd": 5.0,
-        "max_stake_usd": 25.0,
-        "bankroll_pct": 0.03,
+        "label": "2. Moderate Gain & Risk",
         "scalp_take_profit_pct": 0.10,
         "scalp_stop_loss_pct": 0.05,
         "scalp_trailing_stop_pct": 0.04,
+        "scalp_breakeven_pct": 0.05,
         "scalp_max_hold_sec": 300,
-        "scalp_min_hold_sec": 8,
-        "predictor_min_score": 0.55,
-        "min_spot_move_pct": 0.0012,
-        "max_spread": 0.04,
-        "min_ask_depth_shares": 50,
-        "min_seconds_left": 30,
-        "max_daily_loss_usd": 50.0,
-        "daily_profit_target_usd": 60.0,
-        "max_open_positions": 5,
-        "max_consecutive_losses": 3,
-        "max_drawdown_pct": 0.15,
+        "kelly_fraction": 0.25,
+        "min_ev_edge": 0.03,
+        "min_ask_depth_shares": 35,
+        "predictor_min_score": 0.54,
     },
-    "aggressive": {
-        "label": "Higher % Gains / Higher Risk",
-        "description": "Wider stops and larger profit targets to capture bigger BTC swings across timeframes.",
-        "sizing_mode": "scale_gains",
-        "stake_usd": 10.0,
-        "max_stake_usd": 50.0,
-        "bankroll_pct": 0.06,
+    "high": {
+        "label": "3. Higher % Gains / Higher Risk",
         "scalp_take_profit_pct": 0.18,
         "scalp_stop_loss_pct": 0.09,
         "scalp_trailing_stop_pct": 0.06,
+        "scalp_breakeven_pct": 0.08,
         "scalp_max_hold_sec": 600,
-        "scalp_min_hold_sec": 6,
-        "predictor_min_score": 0.45,
-        "min_spot_move_pct": 0.0008,
-        "max_spread": 0.05,
-        "min_ask_depth_shares": 30,
-        "min_seconds_left": 20,
-        "max_daily_loss_usd": 100.0,
-        "daily_profit_target_usd": 150.0,
-        "max_open_positions": 8,
-        "max_consecutive_losses": 4,
-        "max_drawdown_pct": 0.25,
+        "kelly_fraction": 0.35,
+        "min_ev_edge": 0.02,
+        "min_ask_depth_shares": 20,
+        "predictor_min_score": 0.51,
     },
-    "micro_scalp": {
-        "label": "Micro-Scalp / Ultra-Safe",
-        "description": "Fast in-and-out 4% scalps with 2% hard stop, 90s max hold, and strictest liquidity gates.",
-        "sizing_mode": "flat",
-        "stake_usd": 2.0,
-        "max_stake_usd": 8.0,
-        "bankroll_pct": 0.01,
+    "micro": {
+        "label": "4. Micro-Scalp / Ultra-Safe",
         "scalp_take_profit_pct": 0.04,
         "scalp_stop_loss_pct": 0.02,
         "scalp_trailing_stop_pct": 0.015,
+        "scalp_breakeven_pct": 0.02,
         "scalp_max_hold_sec": 90,
-        "scalp_min_hold_sec": 5,
-        "predictor_min_score": 0.70,
-        "min_spot_move_pct": 0.0018,
-        "max_spread": 0.025,
-        "min_ask_depth_shares": 100,
-        "min_seconds_left": 45,
-        "max_daily_loss_usd": 15.0,
-        "daily_profit_target_usd": 15.0,
-        "max_open_positions": 2,
-        "max_consecutive_losses": 2,
-        "max_drawdown_pct": 0.08,
+        "kelly_fraction": 0.10,
+        "min_ev_edge": 0.05,
+        "min_ask_depth_shares": 60,
+        "predictor_min_score": 0.62,
     },
 }
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return str(val).strip().lower() in ("1", "true", "yes", "on")
 
 
 @dataclass
@@ -130,96 +70,61 @@ class BotConfig:
     dry_run: bool = False
     target_timeframe: str = "all"
     risk_profile: str = "moderate"
-    auto_scalp_enabled: bool = True
-    scalp_enabled: bool = True
-    require_pre_trade_triggers: bool = True
-    sizing_mode: str = "scale_gains"
+
+    # Sizing & Growth
     stake_usd: float = 5.0
     max_stake_usd: float = 25.0
-    bankroll_pct: float = 0.03
-    gain_scale_step_usd: float = 10.0
-    gain_scale_mult: float = 0.25
-    starting_bankroll_usd: float = 0.0
-    predictor_min_score: float = 0.55
-    min_spot_move_pct: float = 0.0012
-    max_spread: float = 0.04
-    min_ask_depth_shares: int = 50
-    min_seconds_left: int = 30
-    max_daily_loss_usd: float = 50.0
-    daily_profit_target_usd: float = 60.0
-    max_open_positions: int = 5
-    max_consecutive_losses: int = 3
-    max_drawdown_pct: float = 0.15
+    kelly_fraction: float = 0.25
+    min_ev_edge: float = 0.03
+
+    # Pre-Trade Sell Triggers
+    scalp_enabled: bool = True
     scalp_take_profit_pct: float = 0.10
     scalp_stop_loss_pct: float = 0.05
     scalp_trailing_stop_pct: float = 0.04
+    scalp_breakeven_pct: float = 0.05
     scalp_min_hold_sec: int = 8
     scalp_max_hold_sec: int = 300
-    pre_expiry_exit_sec: int = 15
+
+    # Safety Guardrails
+    max_daily_loss_usd: float = 25.0
+    anti_greed_profit_usd: float = 40.0
+    profit_lock_pct: float = 0.50
+    max_open_positions: int = 3
+    max_consecutive_losses: int = 3
+    max_drawdown_pct: float = 0.20
+
+    # Market & Book Filters
+    predictor_min_score: float = 0.54
+    min_spot_move_pct: float = 0.0008
+    max_spread: float = 0.06
+    min_ask_depth_shares: int = 35
+    min_seconds_left: int = 30
 
     @classmethod
-    def from_env(cls, env_path=None):
-        if env_path:
-            if load_dotenv:
-                load_dotenv(env_path)
-            else:
-                _load_env_fallback(env_path)
-        elif load_dotenv:
-            load_dotenv()
-
+    def from_env(cls) -> "BotConfig":
         return cls(
-            polymarket_key_id=os.environ.get("POLYMARKET_KEY_ID", "").strip(),
-            polymarket_secret_key=os.environ.get("POLYMARKET_SECRET_KEY", "").strip(),
-            dry_run=_parse_bool(os.environ.get("DRY_RUN"), False),
-            target_timeframe=os.environ.get("TARGET_TIMEFRAME", "all").strip().lower() or "all",
-            risk_profile=os.environ.get("RISK_PROFILE", "moderate").strip().lower() or "moderate",
-            auto_scalp_enabled=_parse_bool(os.environ.get("AUTO_SCALP_ENABLED"), True),
-            scalp_enabled=_parse_bool(os.environ.get("SCALP_ENABLED"), True),
-            require_pre_trade_triggers=_parse_bool(os.environ.get("REQUIRE_PRE_TRADE_TRIGGERS"), True),
-            sizing_mode=os.environ.get("SIZING_MODE", "scale_gains").strip(),
-            stake_usd=float(os.environ.get("STAKE_USD", 5.0)),
-            max_stake_usd=float(os.environ.get("MAX_STAKE_USD", 25.0)),
-            bankroll_pct=float(os.environ.get("BANKROLL_PCT", 0.03)),
-            gain_scale_step_usd=float(os.environ.get("GAIN_SCALE_STEP_USD", 10.0)),
-            gain_scale_mult=float(os.environ.get("GAIN_SCALE_MULT", 0.25)),
-            starting_bankroll_usd=float(os.environ.get("STARTING_BANKROLL_USD", 0.0)),
-            predictor_min_score=float(os.environ.get("PREDICTOR_MIN_SCORE", 0.55)),
-            min_spot_move_pct=float(os.environ.get("MIN_SPOT_MOVE_PCT", 0.0012)),
-            max_spread=float(os.environ.get("MAX_SPREAD", 0.04)),
-            min_ask_depth_shares=int(os.environ.get("MIN_ASK_DEPTH_SHARES", 50)),
-            min_seconds_left=int(os.environ.get("MIN_SECONDS_LEFT", 30)),
-            max_daily_loss_usd=float(os.environ.get("MAX_DAILY_LOSS_USD", 50.0)),
-            daily_profit_target_usd=float(os.environ.get("DAILY_PROFIT_TARGET_USD", 60.0)),
-            max_open_positions=int(os.environ.get("MAX_OPEN_POSITIONS", 5)),
-            max_consecutive_losses=int(os.environ.get("MAX_CONSECUTIVE_LOSSES", 3)),
-            max_drawdown_pct=float(os.environ.get("MAX_DRAWDOWN_PCT", 0.15)),
-            scalp_take_profit_pct=float(os.environ.get("SCALP_TAKE_PROFIT_PCT", 0.10)),
-            scalp_stop_loss_pct=float(os.environ.get("SCALP_STOP_LOSS_PCT", 0.05)),
-            scalp_trailing_stop_pct=float(os.environ.get("SCALP_TRAILING_STOP_PCT", 0.04)),
-            scalp_min_hold_sec=int(os.environ.get("SCALP_MIN_HOLD_SEC", 8)),
-            scalp_max_hold_sec=int(os.environ.get("SCALP_MAX_HOLD_SEC", 300)),
-            pre_expiry_exit_sec=int(os.environ.get("PRE_EXPIRY_EXIT_SEC", 15)),
+            polymarket_key_id=os.getenv("POLYMARKET_KEY_ID", "").strip(),
+            polymarket_secret_key=os.getenv("POLYMARKET_SECRET_KEY", "").strip(),
+            dry_run=_env_bool("DRY_RUN", False),
+            target_timeframe=os.getenv("TARGET_TIMEFRAME", "all").strip().lower(),
         )
-
-    def apply_risk_profile(self, profile_name: str) -> bool:
-        key = str(profile_name or "").strip().lower()
-        if key not in RISK_PROFILES:
-            return False
-        preset = RISK_PROFILES[key]
-        self.risk_profile = key
-        for field_name, val in preset.items():
-            if hasattr(self, field_name):
-                setattr(self, field_name, val)
-        return True
 
     def keys_configured(self) -> bool:
         return bool(self.polymarket_key_id and self.polymarket_secret_key)
 
-    def to_safe_dict(self) -> dict:
-        data = asdict(self)
-        data["polymarket_key_id"] = (
-            f"{self.polymarket_key_id[:8]}..." if self.polymarket_key_id else ""
-        )
-        data["polymarket_secret_key"] = "***" if self.polymarket_secret_key else ""
-        data["keys_configured"] = self.keys_configured()
-        return data
+    def apply_preset(self, profile_key: str) -> bool:
+        preset = RISK_PRESETS.get(profile_key)
+        if not preset:
+            return False
+        self.risk_profile = profile_key
+        for k, v in preset.items():
+            if k != "label" and hasattr(self, k):
+                setattr(self, k, v)
+        return True
+
+    def to_public_dict(self) -> dict:
+        d = asdict(self)
+        d.pop("polymarket_key_id", None)
+        d.pop("polymarket_secret_key", None)
+        return d

@@ -1,89 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ZONER Widget</title>
-<style>
-  :root { --bg:#090d14; --card:#131a26; --border:#25324a; --text:#eef3fb; --muted:#8fa1bf; --green:#16c784; --red:#ea3943; --blue:#3b82f6; }
-  * { box-sizing:border-box; margin:0; padding:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  body { background:var(--bg); color:var(--text); padding:10px; }
-  .box { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; max-width:420px; margin:0 auto; }
-  .top { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-  .title { font-weight:800; font-size:13px; letter-spacing:.4px; }
-  .pill { font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted); background:#192233; cursor:pointer; text-decoration:none; }
-  .pill.ok { color:var(--green); border-color:rgba(22,199,132,.4); }
-  .pill.bad { color:var(--red); border-color:rgba(234,57,67,.4); }
-  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
-  .kpi { background:#192233; border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
-  .kpi .l { font-size:10px; color:var(--muted); text-transform:uppercase; }
-  .kpi .v { font-size:16px; font-weight:800; margin-top:2px; }
-  .gate { font-size:11px; font-weight:700; padding:7px 9px; border-radius:8px; background:#192233; border:1px solid var(--border); margin-bottom:8px; color:var(--muted); }
-  .gate.ready { color:var(--green); border-color:rgba(22,199,132,.45); }
-  .btn { border:none; border-radius:9px; padding:10px; font-weight:800; font-size:12px; cursor:pointer; color:#fff; }
-  .up { background:var(--green); color:#052014; }
-  .dn { background:var(--red); }
-  .pos-card { background:#192233; border:1px solid var(--border); border-radius:9px; padding:8px; margin-top:6px; display:flex; justify-content:space-between; align-items:center; font-size:11px; }
-  .cash { background:#25324a; color:#fff; border:none; border-radius:6px; padding:5px 8px; font-size:11px; font-weight:700; cursor:pointer; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZONER-BOT Compact Widget</title>
+  <style>
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0b0f17; color: #e6edf7; padding: 12px;
+    }
+    .card {
+      max-width: 420px; margin: 0 auto; background: #131a26; border: 1px solid #263147;
+      border-radius: 14px; padding: 14px;
+    }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .pill {
+      padding: 3px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700;
+      background: #192233; border: 1px solid #263147;
+    }
+    .live { color: #22c55e; border-color: rgba(34,197,94,0.45); background: rgba(34,197,94,0.15); }
+    .paper { color: #f59e0b; border-color: rgba(245,158,11,0.45); background: rgba(245,158,11,0.15); }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .box { background: #192233; border: 1px solid #263147; border-radius: 8px; padding: 8px; }
+    .lbl { font-size: 0.7rem; color: #93a4bd; text-transform: uppercase; }
+    .val { font-size: 1rem; font-weight: 700; margin-top: 2px; }
+    .btn {
+      flex: 1; padding: 9px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; color: #fff;
+    }
+    .up { background: #16a34a; }
+    .down { background: #dc2626; }
+    .ai-strip {
+      margin-top: 10px; padding: 9px 10px; border-radius: 9px;
+      background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35);
+      font-size: 0.79rem; line-height: 1.38;
+    }
+  </style>
 </head>
 <body>
-<div class="box">
-  <div class="top">
-    <span class="title">ZONER WIDGET</span>
-    <div style="display:flex;gap:5px;">
-      <button id="wPause" class="pill" onclick="togglePause()">PAUSE</button>
-      <a href="/" class="pill">FULL APP</a>
+  <div class="card">
+    <div class="row">
+      <strong>ZONER-BOT</strong>
+      <div>
+        <span id="wMode" class="pill paper">PAPER</span>
+        <span id="wApi" class="pill">API</span>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="box"><div class="lbl">Cash</div><div class="val" id="wCash">$0.00</div></div>
+      <div class="box"><div class="lbl">BTC</div><div class="val" id="wSpot">$0</div></div>
+      <div class="box"><div class="lbl">P&amp;L</div><div class="val" id="wPnl">$0.00</div></div>
+    </div>
+    <div style="font-size:0.82rem; color:#cbd5e1; margin-bottom:10px;" id="wGate">Scanning...</div>
+    <div class="row" style="margin-bottom:0;">
+      <button class="btn up" onclick="wTrade('UP')">Buy UP</button>
+      <button class="btn down" onclick="wTrade('DOWN')">Buy DOWN</button>
+    </div>
+    <div class="ai-strip">
+      <div style="font-weight:700; color:#93c5fd;" id="wAiHead">AI Guide: Connecting...</div>
+      <div style="color:#fde68a; margin-top:3px;" id="wAiTip"></div>
     </div>
   </div>
-  <div class="row">
-    <div class="kpi"><div class="l">Bankroll</div><div class="v" id="wBal">$0.00</div></div>
-    <div class="kpi"><div class="l">Scaled Stake</div><div class="v" id="wStake">$5.00</div></div>
-    <div class="kpi"><div class="l">BTC Spot</div><div class="v" id="wSpot">$0</div></div>
-    <div class="kpi"><div class="l">Session PnL</div><div class="v" id="wPnl">$0.00</div></div>
-  </div>
-  <div id="wGate" class="gate">Connecting...</div>
-  <div class="row">
-    <button class="btn up" onclick="buy('UP')">UP <span id="wUp">$0.50</span></button>
-    <button class="btn dn" onclick="buy('DOWN')">DOWN <span id="wDn">$0.50</span></button>
-  </div>
-  <div style="font-size:11px;font-weight:700;color:var(--muted);margin-top:4px;">OPEN SCALPS (<span id="wCnt">0</span>)</div>
-  <div id="wOps"></div>
-</div>
 <script>
-let paused = false;
+async function wTrade(side) {
+  await fetch('/api/manual-trade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({side}) });
+  tick();
+}
 async function tick() {
   try {
-    const d = await (await fetch('/api/status')).json();
-    paused = d.paused;
-    const pb = document.getElementById('wPause');
-    pb.textContent = paused ? 'RESUME' : 'PAUSE';
-    pb.className = 'pill ' + (paused ? 'bad' : 'ok');
-    document.getElementById('wBal').textContent = '$' + Number(d.bankroll_usd || 0).toFixed(2);
-    document.getElementById('wStake').textContent = '$' + Number(d.current_stake_usd || 5).toFixed(2);
-    document.getElementById('wSpot').textContent = '$' + Number(d.spot || 0).toLocaleString(undefined,{maximumFractionDigits:0});
-    const pnl = Number(d.daily_pnl || 0);
-    const pe = document.getElementById('wPnl');
-    pe.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
-    pe.style.color = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-    const g = document.getElementById('wGate');
-    g.textContent = (d.market ? d.market.seconds_left + 's · ' : '') + (d.gate.reason || '');
-    g.className = 'gate' + (d.gate.ready ? ' ready' : '');
-    document.getElementById('wUp').textContent = '$' + Number(d.book.up_ask || 0.5).toFixed(2);
-    document.getElementById('wDn').textContent = '$' + Number(d.book.down_ask || 0.5).toFixed(2);
-    const ops = d.open_positions || [];
-    document.getElementById('wCnt').textContent = ops.length;
-    document.getElementById('wOps').innerHTML = ops.map(p => {
-      const pct = Number(p.pnl_pct || 0);
-      return `<div class="pos-card"><div><strong>${p.side}</strong> · <span style="color:${pct>=0?'var(--green)':'var(--red)'}">${pct>=0?'+':''}${pct.toFixed(1)}%</span> (${p.held_sec||0}s)</div><button class="cash" onclick="cashOut('${p.trade_id}')">Cash Out</button></div>`;
-    }).join('') || '<div style="font-size:11px;color:var(--muted);margin-top:4px;">None</div>';
-  } catch(e) {}
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const m = document.getElementById('wMode');
+    m.textContent = d.config?.dry_run ? 'PAPER' : 'LIVE';
+    m.className = 'pill ' + (d.config?.dry_run ? 'paper' : 'live');
+    document.getElementById('wApi').textContent = d.account?.connected ? 'CONNECTED' : 'NO API';
+    document.getElementById('wCash').textContent = '$' + Number(d.account?.cash_usd || 0).toFixed(2);
+    document.getElementById('wSpot').textContent = '$' + Math.round(d.spot || 0).toLocaleString();
+    const pnl = Number(d.metrics?.net_pnl || 0);
+    document.getElementById('wPnl').textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+    document.getElementById('wGate').textContent = d.gate?.reason || 'Scanning...';
+    document.getElementById('wAiHead').textContent = 'AI Guide: ' + (d.ai_briefing?.headline || '');
+    document.getElementById('wAiTip').textContent = d.ai_briefing?.guidance || '';
+  } catch (e) {}
 }
-async function buy(side) { await fetch('/api/manual-trade',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({side})}); tick(); }
-async function cashOut(trade_id) { await fetch('/api/cash-out',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({trade_id})}); tick(); }
-async function togglePause() { await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:!paused})}); tick(); }
 tick();
-setInterval(tick, 2500);
+setInterval(tick, 3000);
 </script>
 </body>
 </html>

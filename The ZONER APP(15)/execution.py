@@ -1,6 +1,5 @@
 import csv
 import os
-import time
 from datetime import datetime
 
 try:
@@ -9,110 +8,85 @@ except ImportError:
     PolymarketUS = None
 
 
-def _px_val(val, default: float = 0.0) -> float:
-    if isinstance(val, dict):
-        val = val.get("value", default)
-    try:
-        return float(val)
-    except Exception:
-        return float(default)
-
-
-class TradeExecutor:
+class PolymarketExecutor:
     def __init__(self, cfg):
         self.cfg = cfg
         self.client = None
 
     def _ensure_client(self):
-        if self.client is None and PolymarketUS is not None and self.cfg.keys_configured():
+        if PolymarketUS is None or not self.cfg.keys_configured():
+            self.client = None
+            return None
+        if self.client is None:
             self.client = PolymarketUS(
                 key_id=self.cfg.polymarket_key_id,
                 secret_key=self.cfg.polymarket_secret_key,
             )
+        return self.client
 
-    def get_account_snapshot(self):
-        if self.cfg.dry_run:
-            return {"ok": True, "balance_usd": None, "positions": {}}
+    def reset_client(self):
+        self.client = None
+
+    def get_account_snapshot(self) -> dict:
         if PolymarketUS is None or not self.cfg.keys_configured():
-            return {"ok": False, "balance_usd": None, "positions": {}}
+            return {
+                "connected": False,
+                "cash_usd": 300.0 if self.cfg.dry_run else 0.0,
+                "equity_usd": 300.0 if self.cfg.dry_run else 0.0,
+                "positions": [],
+                "error": "API keys missing" if not self.cfg.keys_configured() else "SDK missing",
+            }
         try:
             self._ensure_client()
             bal_resp = self.client.account.balances() or {}
-            balances = bal_resp.get("balances") or []
-            balance_usd = None
-            if balances:
-                balance_usd = _px_val(balances[0].get("currentBalance"), 0.0)
+            balances = bal_resp.get("balances") if isinstance(bal_resp, dict) else bal_resp
+            cash = 0.0
+            equity = 0.0
+            if isinstance(balances, list):
+                for b in balances:
+                    cur = str(b.get("currency") or "USD").upper()
+                    if cur in ("USD", "USDC"):
+                        cash += float(b.get("availableBalance") or b.get("buyingPower") or b.get("cashBalance") or b.get("balance") or 0)
+                        equity += float(b.get("totalBalance") or b.get("portfolioValue") or b.get("balance") or cash)
+            elif isinstance(balances, dict):
+                cash = float(balances.get("availableBalance") or balances.get("buyingPower") or balances.get("cashBalance") or 0)
+                equity = float(balances.get("totalBalance") or balances.get("portfolioValue") or cash)
+
             pos_resp = self.client.portfolio.positions() or {}
-            positions = pos_resp.get("positions") or {}
-            return {"ok": True, "balance_usd": balance_usd, "positions": positions}
-        except Exception:
-            return {"ok": False, "balance_usd": None, "positions": {}}
+            raw_pos = pos_resp.get("positions") if isinstance(pos_resp, dict) else []
+            return {
+                "connected": True,
+                "cash_usd": round(cash, 2),
+                "equity_usd": round(max(cash, equity), 2),
+                "positions": raw_pos if isinstance(raw_pos, list) else [],
+                "error": "",
+            }
+        except Exception as exc:
+            return {
+                "connected": False,
+                "cash_usd": 0.0,
+                "equity_usd": 0.0,
+                "positions": [],
+                "error": str(exc),
+            }
 
     def _get_live_bbo_price(self, slug: str, side: str, fallback_price: float) -> float:
         try:
             self._ensure_client()
-            if self.client is not None:
-                bbo = self.client.markets.bbo(slug) or {}
-                md = bbo.get("marketData") or bbo
-                if side == "UP":
-                    ask = _px_val(md.get("bestAsk"), 0.0)
-                    if ask > 0:
-                        return round(ask, 2)
-                else:
-                    bid = _px_val(md.get("bestBid"), 0.0)
-                    if bid > 0:
-                        return round(bid, 2)
+            bbo = self.client.markets.bbo(slug) or {}
+            best_ask = bbo.get("bestAsk") or bbo.get("ask") or {}
+            best_bid = bbo.get("bestBid") or bbo.get("bid") or {}
+            if isinstance(best_ask, dict):
+                best_ask = best_ask.get("value") or 0
+            if isinstance(best_bid, dict):
+                best_bid = best_bid.get("value") or 0
+            if side == "UP" and float(best_ask or 0) > 0:
+                return round(float(best_ask), 2)
+            if side == "DOWN" and float(best_bid or 0) > 0:
+                return round(float(best_bid), 2)
         except Exception:
             pass
         return round(fallback_price if side == "UP" else (1.0 - fallback_price), 2)
-
-    def _poll_order_fill(self, resp: dict, fallback_order_price: float):
-        order_obj = resp.get("order") or resp
-        order_id = resp.get("id") or order_obj.get("id")
-        executions = resp.get("executions") or order_obj.get("executions") or []
-        order_state = order_obj.get("state") or order_obj.get("status") or ""
-        cum_qty = float(
-            order_obj.get("cumQuantity")
-            or order_obj.get("cumQty")
-            or order_obj.get("filledQuantity")
-            or order_obj.get("filledQty")
-            or 0
-        )
-        avg_px = _px_val(order_obj.get("avgPx"), 0.0)
-
-        # Polymarket US matching can take ~150-500ms to reflect in orders.retrieve()
-        if order_id and not executions and cum_qty <= 0 and "FILLED" not in str(order_state).upper():
-            for _ in range(3):
-                time.sleep(0.25)
-                try:
-                    fetched = self.client.orders.retrieve(order_id) or {}
-                    f_obj = fetched.get("order") or fetched
-                    order_state = f_obj.get("state") or f_obj.get("status") or order_state
-                    executions = fetched.get("executions") or f_obj.get("executions") or executions
-                    cum_qty = max(
-                        cum_qty,
-                        float(
-                            f_obj.get("cumQuantity")
-                            or f_obj.get("cumQty")
-                            or f_obj.get("filledQuantity")
-                            or f_obj.get("filledQty")
-                            or 0
-                        ),
-                    )
-                    f_avg = _px_val(f_obj.get("avgPx"), 0.0)
-                    if f_avg > 0:
-                        avg_px = f_avg
-                    if executions or cum_qty > 0 or "FILLED" in str(order_state).upper():
-                        break
-                except Exception:
-                    break
-
-        filled = bool(executions) or cum_qty > 0 or ("FILLED" in str(order_state).upper())
-        if avg_px <= 0 and executions and isinstance(executions[0], dict):
-            avg_px = _px_val(executions[0].get("lastPx") or executions[0].get("px"), 0.0)
-        if avg_px <= 0:
-            avg_px = fallback_order_price
-        return filled, order_state, cum_qty, avg_px
 
     def place_order(self, slug: str, side: str, price: float, stake_usd: float, spot_price: float, manual: bool = False):
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -132,7 +106,6 @@ class TradeExecutor:
 
         intent = "ORDER_INTENT_BUY_LONG" if side == "UP" else "ORDER_INTENT_BUY_SHORT"
         order_price = self._get_live_bbo_price(slug, side, price)
-        # 1-cent marketable buffer so IOC crosses live resting liquidity
         order_price = round(order_price + 0.01, 2) if side == "UP" else round(order_price - 0.01, 2)
         order_price = max(0.01, min(0.99, order_price))
         display_price = order_price if side == "UP" else round(1.0 - order_price, 2)
@@ -147,23 +120,36 @@ class TradeExecutor:
                 "quantity": qty,
                 "tif": "TIME_IN_FORCE_IMMEDIATE_OR_CANCEL",
             })
-            filled, order_state, cum_qty, avg_px = self._poll_order_fill(resp, order_price)
-            fill_display_price = round(avg_px if side == "UP" else (1.0 - avg_px), 4)
-            fill_shares = cum_qty if cum_qty > 0 else qty
+            order_obj = resp.get("order") or resp
+            order_id = resp.get("id") or order_obj.get("id")
+            executions = resp.get("executions") or order_obj.get("executions") or []
+            order_state = order_obj.get("state") or order_obj.get("status") or ""
+            cum_qty = float(order_obj.get("cumQuantity") or order_obj.get("cumQty") or order_obj.get("filledQuantity") or order_obj.get("filledQty") or 0)
 
+            if order_id and (not executions and cum_qty <= 0 and "FILLED" not in str(order_state).upper()):
+                try:
+                    fetched = self.client.orders.retrieve(order_id) or {}
+                    f_obj = fetched.get("order") or fetched
+                    order_state = f_obj.get("state") or f_obj.get("status") or order_state
+                    executions = fetched.get("executions") or f_obj.get("executions") or executions
+                    cum_qty = max(cum_qty, float(f_obj.get("cumQuantity") or f_obj.get("cumQty") or f_obj.get("filledQuantity") or f_obj.get("filledQty") or 0))
+                except Exception:
+                    pass
+
+            filled = bool(executions) or cum_qty > 0 or ("FILLED" in str(order_state).upper())
             if filled:
                 order_state = "ORDER_STATE_FILLED"
             elif not order_state or "CANCELED" in str(order_state).upper():
                 order_state = "ORDER_STATE_CANCELED (UNFILLED)"
 
-            self._append_csv("live_trades.csv", [ts, slug, side, fill_display_price, spot_price, stake, "LIVE", order_state])
+            self._append_csv("live_trades.csv", [ts, slug, side, display_price, spot_price, stake, "LIVE", order_state])
             return {
                 "ok": filled,
                 "mode": "LIVE",
                 "status": order_state,
-                "stake": round(fill_shares * fill_display_price, 2) if filled else stake,
-                "price": fill_display_price,
-                "shares": fill_shares,
+                "stake": stake,
+                "price": display_price,
+                "shares": qty,
                 "raw": resp,
             }
         except Exception as exc:
@@ -196,11 +182,8 @@ class TradeExecutor:
         self._ensure_client()
 
         intent = "ORDER_INTENT_SELL_LONG" if side == "UP" else "ORDER_INTENT_SELL_SHORT"
-        base_order_price = exit_price if side == "UP" else (1.0 - exit_price)
-        # 1-cent marketable buffer to ensure IOC sell fills immediately
-        order_price = round(base_order_price - 0.01, 2) if side == "UP" else round(base_order_price + 0.01, 2)
+        order_price = round(exit_price if side == "UP" else (1.0 - exit_price), 2)
         order_price = max(0.01, min(0.99, order_price))
-
         try:
             resp = self.client.orders.create({
                 "marketSlug": slug,
@@ -210,17 +193,11 @@ class TradeExecutor:
                 "quantity": qty_int,
                 "tif": "TIME_IN_FORCE_IMMEDIATE_OR_CANCEL",
             })
-            filled, order_state, cum_qty, avg_px = self._poll_order_fill(resp, order_price)
-            if not filled:
-                # Fallback to close_position for ANY unfilled IOC exit (not just STOP_LOSS)
+            order_state = resp.get("state") or resp.get("status") or "SCALP_CLOSED"
+            if "CANCELED" in str(order_state).upper() and reason in ("STOP_LOSS", "MAX_HOLD", "MANUAL"):
                 resp = self.client.orders.close_position({"marketSlug": slug})
-                status = f"LIVE_SCALP_{reason}_CLOSE ({pnl_usd:+.2f})"
-            else:
-                actual_exit = round(avg_px if side == "UP" else (1.0 - avg_px), 4)
-                pnl_usd = round(((actual_exit - entry_price) / max(0.01, entry_price)) * stake_usd, 2)
-                exit_price = actual_exit
-                status = f"LIVE_SCALP_{reason} ({pnl_usd:+.2f})"
-
+                order_state = resp.get("state") or resp.get("status") or "SCALP_MARKET_CLOSED"
+            status = f"LIVE_SCALP_{reason} ({pnl_usd:+.2f})"
             self._append_csv("live_trades.csv", [ts, slug, f"SELL_{side}", exit_price, spot_price, stake_usd, "LIVE", status])
             return {"ok": True, "mode": "LIVE", "status": status, "pnl_usd": pnl_usd, "exit_price": exit_price, "raw": resp}
         except Exception as exc:
