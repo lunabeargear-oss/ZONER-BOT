@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZONER-BOT — BTC Polymarket Auto-Scalper</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card: #121826;
+      --card2: #182032;
+      --border: #243047;
+      --text: #e6edf7;
+      --muted: #8b9bb4;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --blue: #3b82f6;
+      --purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 16px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.4px; }
+    .badge {
+      font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .badge-live { background: rgba(34,197,94,0.16); color: var(--green); border: 1px solid rgba(34,197,94,0.4); }
+    .badge-paper { background: rgba(245,158,11,0.16); color: var(--amber); border: 1px solid rgba(245,158,11,0.4); }
+    .badge-err { background: rgba(239,68,68,0.16); color: var(--red); border: 1px solid rgba(239,68,68,0.4); }
+    .tf-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pill {
+      background: var(--card2); color: var(--muted); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .pill.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .btn {
+      border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600;
+      cursor: pointer; color: #fff; background: var(--blue);
+    }
+    .btn-green { background: var(--green); color: #052e16; }
+    .btn-red { background: var(--red); }
+    .btn-amber { background: var(--amber); color: #1f1300; }
+    .btn-ghost { background: var(--card2); border: 1px solid var(--border); color: var(--text); }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+    }
+    .card-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 8px; font-weight: 700; }
+    .big-num { font-size: 24px; font-weight: 700; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    .var-card { background: var(--card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .var-row { display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px; color: var(--muted); }
+    .var-row strong { color: var(--text); }
+    .profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 8px; }
+    .profile-btn {
+      text-align: left; background: var(--card2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px; cursor: pointer; color: var(--text);
+    }
+    .profile-btn.active { border-color: var(--green); background: rgba(34,197,94,0.08); }
+    .profile-btn h4 { font-size: 13px; margin-bottom: 4px; }
+    .profile-btn p { font-size: 11px; color: var(--muted); line-height: 1.4; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    input, select {
+      width: 100%; background: var(--card2); border: 1px solid var(--border); color: var(--text);
+      padding: 7px 9px; border-radius: 7px; font-size: 13px;
+    }
+    .trigger-preview {
+      background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.35);
+      border-radius: 8px; padding: 10px 12px; font-size: 12px; margin: 10px 0;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .banner-warn {
+      background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.5);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+      display: none; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <h1>ZONER-BOT</h1>
+      <span id="modeBadge" class="badge badge-paper">LOADING</span>
+      <span id="apiBadge" class="badge badge-paper">API...</span>
+    </div>
+
+    <div class="tf-pills" id="tfPills">
+      <button class="pill" data-tf="5m" onclick="setTimeframe('5m')">5m</button>
+      <button class="pill" data-tf="15m" onclick="setTimeframe('15m')">15m</button>
+      <button class="pill" data-tf="1h" onclick="setTimeframe('1h')">1 Hour</button>
+      <button class="pill" data-tf="1d" onclick="setTimeframe('1d')">1 Day</button>
+      <button class="pill" data-tf="all" onclick="setTimeframe('all')">All</button>
+    </div>
+
+    <div class="row-actions">
+      <button class="btn btn-ghost" onclick="syncBankroll()">Sync Bankroll</button>
+      <button id="pauseBtn" class="btn btn-amber" onclick="togglePause()">Pause</button>
+      <button class="btn btn-red" onclick="cashOutAll()">Emergency Cash-Out All</button>
+    </div>
+  </div>
+
+  <div id="breakerBanner" class="banner-warn">
+    <div>
+      <strong>Circuit Breaker / Safety Pause Active:</strong>
+      <span id="breakerMsg"></span>
+    </div>
+    <button class="btn btn-green" onclick="resetBreaker()">1-Tap Reset Breaker</button>
+  </div>
+
+  <div class="grid-4">
+    <div class="card">
+      <div class="card-title">BTC Spot Price</div>
+      <div class="big-num" id="spotPrice">$--</div>
+      <div class="var-row"><span>Signal (<span id="sigTf">all</span>)</span><strong id="sigText">--</strong></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Polymarket US Bankroll</div>
+      <div class="big-num" id="bankrollVal">$--</div>
+      <div class="var-row"><span>Next Stake</span><strong id="nextStake">$--</strong></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Session Daily PnL</div>
+      <div class="big-num" id="dailyPnl">$0.00</div>
+      <div class="var-row"><span>Win Rate / Streak</span><strong id="winStreak">0% / 0</strong></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Active Market</div>
+      <div style="font-size:13px;font-weight:600;" id="mktQuestion">Scanning...</div>
+      <div class="var-row"><span>UP / DOWN Ask</span><strong id="mktOdds">-- / --</strong></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">BTC Movement &amp; Variation Matrix (5m / 15m / 1h / 1d)</div>
+    <div class="grid-4" id="variationGrid" style="margin-bottom:0;"></div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div class="card-title" style="margin-bottom:0;">Risk &amp; Auto-Scalping Profiles (Passive Income Modes)</div>
+      <label style="display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;color:var(--text);font-size:13px;">
+        <input type="checkbox" id="autoScalpChk" style="width:auto;" onchange="saveQuickToggles()" />
+        Auto-Purchase &amp; Auto-Cashout Enabled
+      </label>
+    </div>
+    <div class="profile-grid">
+      <button class="profile-btn" data-prof="conservative" onclick="selectProfile('conservative')">
+        <h4>1. Small % Gains / Low Risk</h4>
+        <p>TP +6% | SL -3% | Trail 2.5% | Max Hold 180s | Daily Loss $20 | Anti-Greed +$25</p>
+      </button>
+      <button class="profile-btn" data-prof="moderate" onclick="selectProfile('moderate')">
+        <h4>2. Moderate Gain &amp; Risk</h4>
+        <p>TP +10% | SL -5% | Trail 4% | Max Hold 300s | Daily Loss $50 | Anti-Greed +$60</p>
+      </button>
+      <button class="profile-btn" data-prof="aggressive" onclick="selectProfile('aggressive')">
+        <h4>3. Higher % Gains / Higher Risk</h4>
+        <p>TP +18% | SL -9% | Trail 6% | Max Hold 600s | Daily Loss $100 | Anti-Greed +$150</p>
+      </button>
+      <button class="profile-btn" data-prof="micro_scalp" onclick="selectProfile('micro_scalp')">
+        <h4>4. Micro-Scalp / Ultra-Safe</h4>
+        <p>TP +4% | SL -2% | Trail 1.5% | Max Hold 90s | Daily Loss $15 | Anti-Greed +$15</p>
+      </button>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Built-In Sell Triggers (Locked Prior to Purchase) &amp; Trade</div>
+      <div class="form-grid">
+        <div><label>Take-Profit (%)</label><input type="number" step="0.5" id="tpPct" oninput="updatePreview()" /></div>
+        <div><label>Stop-Loss (%)</label><input type="number" step="0.5" id="slPct" oninput="updatePreview()" /></div>
+        <div><label>Trailing Stop (%)</label><input type="number" step="0.5" id="trailPct" oninput="updatePreview()" /></div>
+        <div><label>Max Hold (sec)</label><input type="number" step="10" id="maxHoldSec" oninput="updatePreview()" /></div>
+        <div><label>Manual Stake ($)</label><input type="number" step="1" id="manualStake" /></div>
+      </div>
+      <div class="trigger-preview" id="triggerPreview">
+        Pre-Trade Sell Triggers: Auto-sells at +10% TP, -5% SL, 4% Trailing Lock, or 300s Max Hold.
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-green" onclick="manualTrade('UP')">Buy UP (With Triggers)</button>
+        <button class="btn btn-red" onclick="manualTrade('DOWN')">Buy DOWN (With Triggers)</button>
+        <button class="btn btn-ghost" onclick="saveSettings()">Save Triggers</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Safety Guardrails &amp; Mode</div>
+      <div class="form-grid">
+        <div><label>Daily Loss Limit ($)</label><input type="number" step="5" id="maxDailyLoss" /></div>
+        <div><label>Anti-Greed Profit Pause ($)</label><input type="number" step="5" id="dailyProfitTarget" /></div>
+        <div><label>Max Open Positions</label><input type="number" step="1" id="maxOpenPos" /></div>
+        <div><label>Max Loss Streak</label><input type="number" step="1" id="maxLossStreak" /></div>
+        <div><label>Max Drawdown (%)</label><input type="number" step="1" id="maxDrawdownPct" /></div>
+        <div>
+          <label>Trading Mode</label>
+          <select id="dryRunSel">
+            <option value="false">LIVE (Real Money)</option>
+            <option value="true">PAPER (Dry Run)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-actions" style="margin-top:12px;">
+        <button class="btn" onclick="saveSettings()">Apply Safety Settings</button>
+        <span id="saveMsg" style="font-size:12px;color:var(--green);"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Active &amp; Recent Trades (Pre-Attached Sell Triggers)</div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>TF</th>
+            <th>Market</th>
+            <th>Side</th>
+            <th>Entry</th>
+            <th>Live / Exit</th>
+            <th>Pre-Set TP / SL</th>
+            <th>PnL</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="tradesBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+let lastState = null;
+
+async function fetchState() {
+  try {
+    const r = await fetch('/api/state');
+    const d = await r.json();
+    if (!d.ok) return;
+    lastState = d;
+    renderState(d);
+  } catch (e) {}
+}
+
+function renderState(d) {
+  const c = d.config;
+  document.getElementById('spotPrice').textContent = d.spot_price ? '$' + d.spot_price.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}) : '$--';
+  document.getElementById('bankrollVal').textContent = d.bankroll_usd !== null && d.bankroll_usd !== undefined ? '$' + Number(d.bankroll_usd).toFixed(2) : (d.bankroll_error ? 'Error' : 'Paper');
+  document.getElementById('nextStake').textContent = '$' + Number(d.next_stake_usd || 0).toFixed(2);
+
+  const pnlEl = document.getElementById('dailyPnl');
+  pnlEl.textContent = (d.daily_pnl >= 0 ? '+$' : '-$') + Math.abs(d.daily_pnl).toFixed(2);
+  pnlEl.className = 'big-num ' + (d.daily_pnl >= 0 ? 'pos' : 'neg');
+  document.getElementById('winStreak').textContent = `${d.win_rate}% / ${d.loss_streak}L`;
+
+  const modeBadge = document.getElementById('modeBadge');
+  modeBadge.textContent = c.dry_run ? 'PAPER' : 'LIVE';
+  modeBadge.className = 'badge ' + (c.dry_run ? 'badge-paper' : 'badge-live');
+
+  const apiBadge = document.getElementById('apiBadge');
+  if (d.bankroll_error) {
+    apiBadge.textContent = 'API ERR';
+    apiBadge.className = 'badge badge-err';
+  } else if (c.keys_configured) {
+    apiBadge.textContent = 'API CONNECTED';
+    apiBadge.className = 'badge badge-live';
+  } else {
+    apiBadge.textContent = 'KEYS MISSING';
+    apiBadge.className = 'badge badge-err';
+  }
+
+  document.getElementById('sigTf').textContent = (d.signal?.timeframe || 'all').toUpperCase();
+  document.getElementById('sigText').textContent = `${d.signal?.direction || '--'} (${Math.round((d.signal?.score || 0)*100)}%) — ${d.signal?.reason || ''}`;
+
+  if (d.active_market && d.book) {
+    document.getElementById('mktQuestion').textContent = `[${(d.active_market.timeframe || '').toUpperCase()}] ${d.active_market.question}`;
+    document.getElementById('mktOdds').textContent = `$${d.book.up_ask.toFixed(2)} / $${d.book.down_ask.toFixed(2)} (${d.active_market.seconds_left}s)`;
+  } else {
+    document.getElementById('mktQuestion').textContent = 'No active market in selected timeframe';
+    document.getElementById('mktOdds').textContent = '-- / --';
+  }
+
+  document.querySelectorAll('#tfPills .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tf === c.target_timeframe);
+  });
+  document.querySelectorAll('.profile-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.prof === c.risk_profile);
+  });
+
+  const banner = document.getElementById('breakerBanner');
+  if (d.breaker_tripped || d.paused) {
+    banner.style.display = 'flex';
+    document.getElementById('breakerMsg').textContent = d.breaker_reason || d.pause_reason || 'Paused';
+  } else {
+    banner.style.display = 'none';
+  }
+  document.getElementById('pauseBtn').textContent = d.paused ? 'Resume' : 'Pause';
+
+  // Populate variation matrix
+  const vGrid = document.getElementById('variationGrid');
+  vGrid.innerHTML = ['5m', '15m', '1h', '1d'].map(tf => {
+    const v = d.variation?.[tf] || {};
+    const chg = Number(v.change_pct || 0);
+    const cls = chg >= 0 ? 'pos' : 'neg';
+    return `<div class="var-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>${tf.toUpperCase()} Variation</strong>
+        <span class="${cls}" style="font-weight:700;">${chg >= 0 ? '+' : ''}${chg.toFixed(3)}%</span>
+      </div>
+      <div class="var-row"><span>Range (H-L)</span><strong>${Number(v.range_pct || 0).toFixed(3)}%</strong></div>
+      <div class="var-row"><span>Volatility / RSI</span><strong>${Number(v.volatility_pct || 0).toFixed(3)}% / ${v.rsi || 50}</strong></div>
+      <div class="var-row"><span>Direction / Conf</span><strong>${v.direction || '--'} (${Math.round((v.confidence || 0)*100)}%)</strong></div>
+    </div>`;
+  }).join('');
+
+  // Sync inputs only if not actively editing
+  if (!document.activeElement || !['INPUT', 'SELECT'].includes(document.activeElement.tagName)) {
+    document.getElementById('autoScalpChk').checked = !!c.auto_scalp_enabled;
+    document.getElementById('tpPct').value = (c.scalp_take_profit_pct * 100).toFixed(1);
+    document.getElementById('slPct').value = (c.scalp_stop_loss_pct * 100).toFixed(1);
+    document.getElementById('trailPct').value = (c.scalp_trailing_stop_pct * 100).toFixed(1);
+    document.getElementById('maxHoldSec').value = c.scalp_max_hold_sec;
+    document.getElementById('manualStake').value = c.stake_usd;
+    document.getElementById('maxDailyLoss').value = c.max_daily_loss_usd;
+    document.getElementById('dailyProfitTarget').value = c.daily_profit_target_usd;
+    document.getElementById('maxOpenPos').value = c.max_open_positions;
+    document.getElementById('maxLossStreak').value = c.max_consecutive_losses;
+    document.getElementById('maxDrawdownPct').value = (c.max_drawdown_pct * 100).toFixed(0);
+    document.getElementById('dryRunSel').value = String(!!c.dry_run);
+    updatePreview();
+  }
+
+  // Trades table
+  const tbody = document.getElementById('tradesBody');
+  tbody.innerHTML = (d.trades || []).map(t => {
+    const isOpen = t.status === 'OPEN';
+    const pnl = isOpen ? (t.live_pnl_pct || 0) + '%' : ((t.pnl_usd >= 0 ? '+$' : '-$') + Math.abs(t.pnl_usd || 0).toFixed(2));
+    const pnlCls = (isOpen ? (t.live_pnl_pct || 0) : (t.pnl_usd || 0)) >= 0 ? 'pos' : 'neg';
+    const liveOrExit = isOpen ? '$' + Number(t.current_price || t.entry_price).toFixed(2) : '$' + Number(t.exit_price || 0).toFixed(2);
+    return `<tr>
+      <td>${(t.timeframe || '').toUpperCase()}</td>
+      <td>${t.slug}</td>
+      <td><strong>${t.side}</strong></td>
+      <td>$${Number(t.entry_price).toFixed(2)} (${t.shares}sh)</td>
+      <td>${liveOrExit}</td>
+      <td>$${Number(t.tp_price || 0).toFixed(2)} / $${Number(t.sl_price || 0).toFixed(2)}</td>
+      <td class="${pnlCls}"><strong>${pnl}</strong></td>
+      <td>${isOpen ? 'OPEN' : (t.exit_reason || 'CLOSED')}</td>
+      <td>${isOpen ? `<button class="btn btn-amber" style="padding:4px 8px;font-size:11px;" onclick="cashOut('${t.id}')">Cash Out</button>` : '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updatePreview() {
+  const tp = document.getElementById('tpPct').value || 10;
+  const sl = document.getElementById('slPct').value || 5;
+  const tr = document.getElementById('trailPct').value || 4;
+  const mh = document.getElementById('maxHoldSec').value || 300;
+  document.getElementById('triggerPreview').textContent =
+    `Pre-Trade Sell Triggers: Every buy attaches Auto-TP +${tp}%, Auto-SL -${sl}%, Trailing Lock ${tr}%, and Max Hold ${mh}s prior to execution.`;
+}
+
+async function setTimeframe(tf) {
+  await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({target_timeframe: tf})});
+  fetchState();
+}
+
+async function selectProfile(profile) {
+  await fetch('/api/risk-profile', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({profile})});
+  fetchState();
+}
+
+async function saveQuickToggles() {
+  const auto_scalp_enabled = document.getElementById('autoScalpChk').checked;
+  await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({auto_scalp_enabled})});
+  fetchState();
+}
+
+async function saveSettings() {
+  const payload = {
+    scalp_take_profit_pct: Number(document.getElementById('tpPct').value) / 100,
+    scalp_stop_loss_pct: Number(document.getElementById('slPct').value) / 100,
+    scalp_trailing_stop_pct: Number(document.getElementById('trailPct').value) / 100,
+    scalp_max_hold_sec: Number(document.getElementById('maxHoldSec').value),
+    stake_usd: Number(document.getElementById('manualStake').value),
+    max_daily_loss_usd: Number(document.getElementById('maxDailyLoss').value),
+    daily_profit_target_usd: Number(document.getElementById('dailyProfitTarget').value),
+    max_open_positions: Number(document.getElementById('maxOpenPos').value),
+    max_consecutive_losses: Number(document.getElementById('maxLossStreak').value),
+    max_drawdown_pct: Number(document.getElementById('maxDrawdownPct').value) / 100,
+    dry_run: document.getElementById('dryRunSel').value === 'true',
+  };
+  await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  document.getElementById('saveMsg').textContent = 'Saved!';
+  setTimeout(() => document.getElementById('saveMsg').textContent = '', 2000);
+  fetchState();
+}
+
+async function manualTrade(side) {
+  const triggers = {
+    take_profit_pct: Number(document.getElementById('tpPct').value) / 100,
+    stop_loss_pct: Number(document.getElementById('slPct').value) / 100,
+    trailing_stop_pct: Number(document.getElementById('trailPct').value) / 100,
+    max_hold_sec: Number(document.getElementById('maxHoldSec').value),
+  };
+  const stake_usd = Number(document.getElementById('manualStake').value);
+  const r = await fetch('/api/manual-trade', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({side, stake_usd, triggers})
+  });
+  const d = await r.json();
+  if (!d.ok) alert(d.error || 'Trade failed');
+  fetchState();
+}
+
+async function cashOut(id) {
+  await fetch('/api/cash-out', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id})});
+  fetchState();
+}
+
+async function cashOutAll() {
+  if (!confirm('Sell all open positions immediately and pause auto-buying?')) return;
+  await fetch('/api/cash-out-all', {method:'POST'});
+  fetchState();
+}
+
+async function togglePause() {
+  const paused = !(lastState?.paused);
+  await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({paused})});
+  fetchState();
+}
+
+async function resetBreaker() {
+  await fetch('/api/circuit-breaker/reset', {method:'POST'});
+  fetchState();
+}
+
+async function syncBankroll() {
+  const r = await fetch('/api/sync-bankroll', {method:'POST'});
+  const d = await r.json();
+  if (!d.ok) alert(d.error || 'Sync failed');
+  fetchState();
+}
+
+fetchState();
+setInterval(fetchState, 3000);
+</script>
+</body>
+</html>
