@@ -63,11 +63,20 @@
       padding: 7px 13px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; transition: 0.15s;
     }
     .tf-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
-    .btn:hover, .tf-btn:hover { filter: brightness(1.12); }
+    .btn:hover:not(:disabled), .tf-btn:hover:not(:disabled) { filter: brightness(1.12); }
+    .btn:disabled { opacity: 0.6; cursor: wait; }
     .btn-green { background: #16a34a; border-color: #16a34a; color: #fff; }
     .btn-red { background: #dc2626; border-color: #dc2626; color: #fff; }
     .btn-blue { background: var(--blue); border-color: var(--blue); color: #fff; }
     .btn-amber { background: #d97706; border-color: #d97706; color: #fff; }
+
+    .trade-feedback {
+      margin-top: 10px; padding: 8px 11px; border-radius: 8px; font-size: 0.82rem; display: none;
+      background: var(--card-2); border: 1px solid var(--border);
+    }
+    .trade-feedback.ok { display: block; border-color: rgba(34,197,94,0.45); color: #86efac; background: rgba(34,197,94,0.12); }
+    .trade-feedback.err { display: block; border-color: rgba(239,68,68,0.45); color: #fca5a5; background: rgba(239,68,68,0.12); }
+    .trade-feedback.pending { display: block; border-color: rgba(59,130,246,0.45); color: #93c5fd; background: rgba(59,130,246,0.12); }
 
     .preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     @media (max-width: 600px) { .preset-grid { grid-template-columns: 1fr; } }
@@ -194,9 +203,10 @@
         Signal: <strong id="gateText">Loading...</strong>
       </div>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-green" style="flex:1;" onclick="manualTrade('UP')">Buy UP (With Triggers)</button>
-        <button class="btn btn-red" style="flex:1;" onclick="manualTrade('DOWN')">Buy DOWN (With Triggers)</button>
+        <button id="buyUpBtn" class="btn btn-green" style="flex:1;" onclick="manualTrade('UP')">Buy UP (With Triggers)</button>
+        <button id="buyDownBtn" class="btn btn-red" style="flex:1;" onclick="manualTrade('DOWN')">Buy DOWN (With Triggers)</button>
       </div>
+      <div id="tradeFeedback" class="trade-feedback"></div>
     </div>
 
     <!-- Risk & Auto-Scalping Profiles -->
@@ -385,10 +395,34 @@ async function saveSafety() {
 }
 
 async function manualTrade(side) {
-  const r = await fetch('/api/manual-trade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({side}) });
-  const d = await r.json();
-  if (!d.ok && d.error) alert(d.error);
-  refreshStatus();
+  const upBtn = document.getElementById('buyUpBtn');
+  const downBtn = document.getElementById('buyDownBtn');
+  const fb = document.getElementById('tradeFeedback');
+  upBtn.disabled = true;
+  downBtn.disabled = true;
+  fb.className = 'trade-feedback pending';
+  fb.textContent = `Submitting ${side} order at best live market price...`;
+  try {
+    const r = await fetch('/api/manual-trade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({side}) });
+    const d = await r.json();
+    if (d.ok) {
+      const t = d.trade || {};
+      const mkt = d.market?.title || t.slug || 'BTC Market';
+      fb.className = 'trade-feedback ok';
+      fb.textContent = `Executed ${side} on ${mkt} @ $${Number(t.price || 0).toFixed(2)} ($${Number(t.stake || 0).toFixed(2)}) — ${t.status || 'FILLED'}`;
+    } else {
+      const errMsg = d.error || d.result?.status || 'Order failed';
+      fb.className = 'trade-feedback err';
+      fb.textContent = `${side} order failed: ${errMsg}`;
+    }
+  } catch (err) {
+    fb.className = 'trade-feedback err';
+    fb.textContent = `Network error placing ${side} order: ${err.message}`;
+  } finally {
+    upBtn.disabled = false;
+    downBtn.disabled = false;
+    refreshStatus();
+  }
 }
 
 async function closePosition(tradeId) {
@@ -461,7 +495,9 @@ async function refreshStatus(forceInputs = false) {
     document.getElementById('matrixBody').innerHTML = rows;
 
     // Market & Book
-    document.getElementById('marketTitle').textContent = d.market ? d.market.title : `No active ${String(c.target_timeframe||'all').toUpperCase()} BTC market`;
+    const tfTag = d.market?.timeframe ? ` [${String(d.market.timeframe).toUpperCase()}]` : '';
+    const tfLabel = String(c.target_timeframe||"all").toLowerCase() === "all" ? "5m / 15m / 1h / 1d" : String(c.target_timeframe).toUpperCase();
+    document.getElementById('marketTitle').textContent = d.market ? `${d.market.title}${tfTag}` : `Scanning ${tfLabel} BTC markets...`;
     document.getElementById('marketLeftBadge').textContent = d.market ? `${d.market.seconds_left}s left` : '--';
     document.getElementById('upAsk').textContent = '$' + Number(d.book?.up_ask || 0.52).toFixed(2);
     document.getElementById('downAsk').textContent = '$' + Number(d.book?.down_ask || 0.52).toFixed(2);

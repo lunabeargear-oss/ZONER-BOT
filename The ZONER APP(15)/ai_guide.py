@@ -42,7 +42,8 @@ def build_live_briefing(bot_state: dict, cfg, metrics: dict) -> dict:
             f"Active Market: {market.get('title')} ({market.get('seconds_left', 0)}s left) | {book.get('book_source', 'Fallback')}: UP ${book.get('up_ask', 0):.2f} / DOWN ${book.get('down_ask', 0):.2f} | Depth: {int(book.get('ask_depth', 0))}sh | Spread: ${book.get('spread', 0):.2f}"
         )
     else:
-        bullets.append(f"No active {cfg.target_timeframe.upper()} BTC Up/Down market window open right now — waiting for the next round.")
+        tf_desc = "5m, 15m, 1h, and 1d" if cfg.target_timeframe == "all" else cfg.target_timeframe.upper()
+        bullets.append(f"Scanning {tf_desc} BTC Up/Down markets — waiting for an open window.")
 
     conf_dir = conf.get("direction", "NEUTRAL")
     conf_pct = int(conf.get("agreement_pct", 0))

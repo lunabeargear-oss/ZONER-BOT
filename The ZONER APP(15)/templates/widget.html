@@ -27,8 +27,10 @@
     .btn {
       flex: 1; padding: 9px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; color: #fff;
     }
+    .btn:disabled { opacity: 0.6; cursor: wait; }
     .up { background: #16a34a; }
     .down { background: #dc2626; }
+    .msg { font-size: 0.78rem; margin-top: 8px; min-height: 16px; color: #cbd5e1; }
     .ai-strip {
       margin-top: 10px; padding: 9px 10px; border-radius: 9px;
       background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35);
@@ -50,11 +52,13 @@
       <div class="box"><div class="lbl">BTC</div><div class="val" id="wSpot">$0</div></div>
       <div class="box"><div class="lbl">P&amp;L</div><div class="val" id="wPnl">$0.00</div></div>
     </div>
+    <div style="font-size:0.78rem; color:#93c5fd; margin-bottom:4px; font-weight:600;" id="wMarket">Scanning market...</div>
     <div style="font-size:0.82rem; color:#cbd5e1; margin-bottom:10px;" id="wGate">Scanning...</div>
     <div class="row" style="margin-bottom:0;">
-      <button class="btn up" onclick="wTrade('UP')">Buy UP</button>
-      <button class="btn down" onclick="wTrade('DOWN')">Buy DOWN</button>
+      <button id="wUpBtn" class="btn up" onclick="wTrade('UP')">Buy UP</button>
+      <button id="wDownBtn" class="btn down" onclick="wTrade('DOWN')">Buy DOWN</button>
     </div>
+    <div class="msg" id="wTradeMsg"></div>
     <div class="ai-strip">
       <div style="font-weight:700; color:#93c5fd;" id="wAiHead">AI Guide: Connecting...</div>
       <div style="color:#fde68a; margin-top:3px;" id="wAiTip"></div>
@@ -62,8 +66,32 @@
   </div>
 <script>
 async function wTrade(side) {
-  await fetch('/api/manual-trade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({side}) });
-  tick();
+  const up = document.getElementById('wUpBtn');
+  const dn = document.getElementById('wDownBtn');
+  const msg = document.getElementById('wTradeMsg');
+  up.disabled = true;
+  dn.disabled = true;
+  msg.style.color = '#93c5fd';
+  msg.textContent = `Sending ${side} order at best market price...`;
+  try {
+    const r = await fetch('/api/manual-trade', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({side}) });
+    const d = await r.json();
+    if (d.ok) {
+      const t = d.trade || {};
+      msg.style.color = '#86efac';
+      msg.textContent = `Filled ${side} @ $${Number(t.price || 0).toFixed(2)} ($${Number(t.stake || 0).toFixed(2)})`;
+    } else {
+      msg.style.color = '#fca5a5';
+      msg.textContent = `${side} failed: ${d.error || d.result?.status || 'Order failed'}`;
+    }
+  } catch (e) {
+    msg.style.color = '#fca5a5';
+    msg.textContent = `Network error: ${e.message}`;
+  } finally {
+    up.disabled = false;
+    dn.disabled = false;
+    tick();
+  }
 }
 async function tick() {
   try {
@@ -77,6 +105,8 @@ async function tick() {
     document.getElementById('wSpot').textContent = '$' + Math.round(d.spot || 0).toLocaleString();
     const pnl = Number(d.metrics?.net_pnl || 0);
     document.getElementById('wPnl').textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);
+    const mkt = d.market ? `${d.market.title} | UP $${Number(d.book?.up_ask||0.52).toFixed(2)} / DN $${Number(d.book?.down_ask||0.52).toFixed(2)}` : 'Scanning 5m / 15m / 1h / 1d BTC markets...';
+    document.getElementById('wMarket').textContent = mkt;
     document.getElementById('wGate').textContent = d.gate?.reason || 'Scanning...';
     document.getElementById('wAiHead').textContent = 'AI Guide: ' + (d.ai_briefing?.headline || '');
     document.getElementById('wAiTip').textContent = d.ai_briefing?.guidance || '';

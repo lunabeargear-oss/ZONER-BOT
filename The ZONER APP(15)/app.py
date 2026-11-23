@@ -27,6 +27,7 @@ bot_state = {
     "paused": False,
     "breaker_tripped": False,
     "breaker_reason": "",
+    "last_error": "",
     "spot": 90000.0,
     "spot_history": [],
     "btc_matrix": {},
@@ -122,7 +123,6 @@ def _is_purchased_status(status: str) -> bool:
 
 def _compute_metrics() -> dict:
     closed = [t for t in bot_state["trades"] if str(t.get("status", "")).startswith(("SETTLED", "CLOSED_SCALP", "PAPER_SCALP", "LIVE_SCALP")) or str(t.get("side", "")).startswith("SELL_")]
-    # Sum pnl on settled entries and scalp exit rows
     net_pnl = round(sum(float(t.get("pnl") or 0.0) for t in bot_state["trades"]), 2)
     wins = sum(1 for t in closed if float(t.get("pnl") or 0.0) > 0)
     losses = sum(1 for t in closed if float(t.get("pnl") or 0.0) < 0)
@@ -146,11 +146,9 @@ def _compute_kelly_stake(p_win: float, ask_price: float) -> tuple[float, float]:
     if bankroll <= 0:
         return round(cfg.stake_usd, 2), ev_edge
 
-    # Binary contract Kelly: f* = (p - price) / (1 - price)
     full_kelly = max(0.0, (p_win - price) / max(0.05, 1.0 - price))
     frac_kelly = full_kelly * cfg.kelly_fraction
     kelly_usd = bankroll * frac_kelly
-    # Blend with base stake and cap at max_stake_usd and 15% of bankroll
     stake = max(cfg.stake_usd, kelly_usd) if ev_edge >= cfg.min_ev_edge else cfg.stake_usd
     stake = min(stake, cfg.max_stake_usd, max(1.0, bankroll * 0.15))
     return round(max(1.0, stake), 2), ev_edge
@@ -227,7 +225,6 @@ def _evaluate_scalp_exits(market, book, spot, now):
         opened_ts = float(pos.get("opened_ts") or now)
         held_sec = now - opened_ts
 
-        # Use current book if same slug, otherwise fetch that slug's book on rollover
         pos_book = book if (market and slug == market.get("slug")) else discovery.fetch_book(slug)
         current_bid = float(pos_book.get("up_bid", 0.50) if side == "UP" else pos_book.get("down_bid", 0.46))
         peak_price = max(float(pos.get("peak_price") or entry_price), current_bid)
@@ -349,7 +346,7 @@ def bot_loop():
             now = time.time()
             spot = btc.fetch_spot()
             matrix = btc.get_variation_matrix()
-            market = discovery.find_active_btc_market(cfg.target_timeframe)
+            market = discovery.find_best_btc_market(cfg.target_timeframe, allow_fallback=True)
             book = discovery.fetch_book(market["slug"]) if market else bot_state["book"]
 
             acct = None
@@ -357,6 +354,7 @@ def bot_loop():
                 acct = executor.get_account_snapshot()
 
             with state_lock:
+                bot_state["last_error"] = ""
                 if acct is not None:
                     bot_state["account"] = acct
                     bot_state["last_account_ts"] = now
@@ -388,7 +386,7 @@ def bot_loop():
                 elif len(bot_state["open_positions"]) >= cfg.max_open_positions:
                     gate = {"ready": False, "side": side, "reason": f"Max open positions ({len(bot_state['open_positions'])}/{cfg.max_open_positions})", "score": sig["score"], "ev_edge": ev_edge}
                 elif not market:
-                    gate = {"ready": False, "side": side, "reason": f"No active {cfg.target_timeframe.upper()} BTC market", "score": sig["score"], "ev_edge": ev_edge}
+                    gate = {"ready": False, "side": side, "reason": ("Scanning 5m / 15m / 1h / 1d BTC markets..." if cfg.target_timeframe == "all" else f"Waiting for next {cfg.target_timeframe.upper()} BTC window"), "score": sig["score"], "ev_edge": ev_edge}
                 elif market["seconds_left"] < cfg.min_seconds_left:
                     gate = {"ready": False, "side": side, "reason": f"Window closing ({market['seconds_left']}s left)", "score": sig["score"], "ev_edge": ev_edge}
                 elif book["spread"] > cfg.max_spread:
@@ -408,8 +406,10 @@ def bot_loop():
                         res = executor.place_order(market["slug"], side, ask_price, next_stake, spot, manual=False)
                         _record_entry_trade(market, side, ask_price, spot, next_stake, res, now)
                 bot_state["gate"] = gate
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[bot_loop error] {exc}", flush=True)
+            with state_lock:
+                bot_state["last_error"] = str(exc)
         time.sleep(4)
 
 
@@ -440,6 +440,7 @@ def api_status():
             "paused": bot_state["paused"],
             "breaker_tripped": bot_state["breaker_tripped"],
             "breaker_reason": bot_state["breaker_reason"],
+            "last_error": bot_state.get("last_error", ""),
             "spot": bot_state["spot"],
             "btc_matrix": bot_state["btc_matrix"],
             "signal": bot_state["signal"],
@@ -494,17 +495,48 @@ def api_preset():
 @app.route("/api/manual-trade", methods=["POST"])
 def api_manual_trade():
     data = request.get_json(silent=True) or {}
-    side = str(data.get("side", "UP")).upper()
-    stake = float(data.get("stake") or bot_state["next_stake_usd"] or cfg.stake_usd)
-    now = time.time()
+    side = str(data.get("side", "UP")).strip().upper()
+    if side not in ("UP", "DOWN"):
+        return jsonify({"ok": False, "error": f"Invalid side: {side}"}), 400
+
     with state_lock:
         market = bot_state["market"]
-        if not market:
-            return jsonify({"ok": False, "error": "No active BTC Up/Down market found"}), 400
-        price = bot_state["book"]["up_ask"] if side == "UP" else bot_state["book"]["down_ask"]
-        res = executor.place_order(market["slug"], side, price, stake, bot_state["spot"], manual=True)
-        trade = _record_entry_trade(market, side, price, bot_state["spot"], stake, res, now)
-        return jsonify({"ok": bool(res.get("ok")), "trade": trade, "result": res})
+        stake = float(data.get("stake") or bot_state["next_stake_usd"] or cfg.stake_usd)
+        tf = cfg.target_timeframe
+        spot = bot_state["spot"]
+
+    # Always resolve the best open BTC market on-demand if none is cached or window is nearly expired
+    if not market or float(market.get("seconds_left") or 0) <= 10:
+        market = discovery.find_best_btc_market(tf, allow_fallback=True)
+
+    if not market:
+        return jsonify({"ok": False, "error": "No open BTC Up/Down market available on Polymarket US right now."}), 400
+
+    # Fetch fresh live orderbook right before execution so we hit the best market price
+    fresh_book = discovery.fetch_book(market["slug"])
+    price = fresh_book["up_ask"] if side == "UP" else fresh_book["down_ask"]
+    now = time.time()
+
+    with state_lock:
+        bot_state["market"] = market
+        bot_state["book"] = fresh_book
+        res = executor.place_order(market["slug"], side, price, stake, spot, manual=True)
+        trade = _record_entry_trade(market, side, price, spot, stake, res, now)
+
+    if res.get("ok") and not cfg.dry_run:
+        acct = executor.get_account_snapshot()
+        with state_lock:
+            bot_state["account"] = acct
+            bot_state["last_account_ts"] = time.time()
+
+    ok = bool(res.get("ok"))
+    return jsonify({
+        "ok": ok,
+        "error": "" if ok else str(res.get("status") or "Order failed"),
+        "market": market,
+        "trade": trade,
+        "result": res,
+    })
 
 
 @app.route("/api/close-position", methods=["POST"])
