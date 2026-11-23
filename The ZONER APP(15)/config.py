@@ -44,7 +44,7 @@ RISK_PRESETS = {
     "micro": {
         "label": "4. Micro-Scalp / Ultra-Safe",
         "scalp_take_profit_pct": 0.04,
-        "scalp_stop_loss_pct": 0.02,
+        "scalp_stop_loss_pct": 0.15,
         "scalp_trailing_stop_pct": 0.015,
         "scalp_breakeven_pct": 0.02,
         "scalp_max_hold_sec": 90,

@@ -229,21 +229,24 @@ class PolymarketExecutor:
         order_price = round(exit_price if side == "UP" else (1.0 - exit_price), 2)
         order_price = max(0.01, min(0.99, order_price))
         try:
-            resp = self.client.orders.create({
-                "marketSlug": slug,
-                "intent": intent,
-                "type": "ORDER_TYPE_LIMIT",
-                "price": {"value": f"{order_price:.2f}", "currency": "USD"},
-                "quantity": qty_int,
-                "tif": "TIME_IN_FORCE_IMMEDIATE_OR_CANCEL",
-            })
-            order_state = resp.get("state") or resp.get("status") or "SCALP_CLOSED"
-            if "CANCELED" in str(order_state).upper() and reason in ("STOP_LOSS", "MAX_HOLD", "MANUAL"):
-                resp = self.client.orders.close_position({"marketSlug": slug})
+            filled, order_state, avg_px, filled_qty, resp = self._submit_ioc_order(slug, intent, order_price, qty_int)
+            if not filled and reason in ("STOP_LOSS", "MAX_HOLD", "MANUAL"):
+                resp = self.client.orders.close_position({"marketSlug": slug}) or {}
                 order_state = resp.get("state") or resp.get("status") or "SCALP_MARKET_CLOSED"
-            status = f"LIVE_SCALP_{reason} ({pnl_usd:+.2f})"
-            self._append_csv("live_trades.csv", [ts, slug, f"SELL_{side}", exit_price, spot_price, stake_usd, "LIVE", status])
-            return {"ok": True, "mode": "LIVE", "status": status, "pnl_usd": pnl_usd, "exit_price": exit_price, "raw": resp}
+                filled = "CANCELED" not in str(order_state).upper() and "FAIL" not in str(order_state).upper()
+                avg_px = self._px_float(resp.get("avgPx") or resp.get("averagePrice"))
+                filled_qty = float(qty_int)
+            if not filled:
+                return {"ok": False, "mode": "LIVE", "status": f"SCALP_UNFILLED ({order_state})", "pnl_usd": 0.0, "raw": resp}
+
+            actual_exit_px = (
+                round(avg_px, 2) if (avg_px > 0 and side == "UP")
+                else (round(1.0 - avg_px, 2) if avg_px > 0 else exit_price)
+            )
+            realized_pnl = round((actual_exit_px - entry_price) * filled_qty, 2)
+            status = f"LIVE_SCALP_{reason} ({realized_pnl:+.2f})"
+            self._append_csv("live_trades.csv", [ts, slug, f"SELL_{side}", actual_exit_px, spot_price, stake_usd, "LIVE", status])
+            return {"ok": True, "mode": "LIVE", "status": status, "pnl_usd": realized_pnl, "exit_price": actual_exit_px, "raw": resp}
         except Exception as exc:
             try:
                 resp = self.client.orders.close_position({"marketSlug": slug})

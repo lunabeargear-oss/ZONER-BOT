@@ -160,6 +160,8 @@
   <div class="stats-row">
     <div class="stat-box"><div class="stat-label">Polymarket Cash</div><div class="stat-val" id="cashVal">$0.00</div></div>
     <div class="stat-box"><div class="stat-label">BTC Spot</div><div class="stat-val" id="spotVal">$0.00</div></div>
+    <div class="stat-box"><div class="stat-label">Today's Profit</div><div class="stat-val pos" id="profitVal">+$0.00</div></div>
+    <div class="stat-box"><div class="stat-label">Today's Loss</div><div class="stat-val neg" id="lossVal">-$0.00</div></div>
     <div class="stat-box"><div class="stat-label">Today's Net P&amp;L</div><div class="stat-val" id="pnlVal">$0.00</div></div>
     <div class="stat-box"><div class="stat-label">Next Kelly Stake</div><div class="stat-val" id="stakeVal">$5.00</div></div>
     <div class="stat-box"><div class="stat-label">Win Rate</div><div class="stat-val" id="winRateVal">0%</div></div>
@@ -467,6 +469,10 @@ async function refreshStatus(forceInputs = false) {
 
     document.getElementById('cashVal').textContent = '$' + Number(d.account?.cash_usd || 0).toFixed(2);
     document.getElementById('spotVal').textContent = '$' + Number(d.spot || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    const gp = Number(m.gross_profit || 0);
+    const gl = Number(m.gross_loss || 0);
+    document.getElementById('profitVal').textContent = '+$' + gp.toFixed(2);
+    document.getElementById('lossVal').textContent = '-$' + gl.toFixed(2);
     const pnlEl = document.getElementById('pnlVal');
     const pnl = Number(m.net_pnl || 0);
     pnlEl.textContent = (pnl >= 0 ? '+$' : '-$') + Math.abs(pnl).toFixed(2);

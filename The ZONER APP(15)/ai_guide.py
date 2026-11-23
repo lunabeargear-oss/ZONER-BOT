@@ -34,7 +34,7 @@ def build_live_briefing(bot_state: dict, cfg, metrics: dict) -> dict:
     # 2. What's happening right now
     bullets = []
     bullets.append(
-        f"Mode & Wallet: {mode} | API {'Connected' if connected else 'Disconnected'} | Cash: ${cash:.2f} | Today's P&L: ${metrics.get('net_pnl', 0.0):+.2f}"
+        f"Mode & Wallet: {mode} | API {'Connected' if connected else 'Disconnected'} | Cash: ${cash:.2f} | Profit: +${metrics.get('gross_profit', 0.0):.2f} | Loss: -${metrics.get('gross_loss', 0.0):.2f} | Net P&L: ${metrics.get('net_pnl', 0.0):+.2f}"
     )
 
     if market:

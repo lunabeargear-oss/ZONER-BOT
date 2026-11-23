@@ -122,17 +122,38 @@ def _is_purchased_status(status: str) -> bool:
 
 
 def _compute_metrics() -> dict:
-    closed = [t for t in bot_state["trades"] if str(t.get("status", "")).startswith(("SETTLED", "CLOSED_SCALP", "PAPER_SCALP", "LIVE_SCALP")) or str(t.get("side", "")).startswith("SELL_")]
-    net_pnl = round(sum(float(t.get("pnl") or 0.0) for t in bot_state["trades"]), 2)
-    wins = sum(1 for t in closed if float(t.get("pnl") or 0.0) > 0)
-    losses = sum(1 for t in closed if float(t.get("pnl") or 0.0) < 0)
+    active_mode = "PAPER" if cfg.dry_run else "LIVE"
+    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    realized = []
+    for t in bot_state["trades"]:
+        if str(t.get("mode", "")).upper() != active_mode:
+            continue
+        if float(t.get("ts") or 0) < today_start:
+            continue
+        status = str(t.get("status", "")).upper()
+        side = str(t.get("side", "")).upper()
+        is_closed = status.startswith(("SETTLED_WIN", "SETTLED_LOSS", "PAPER_SCALP", "LIVE_SCALP")) or (
+            side.startswith("SELL_") and bool(t.get("purchased", False))
+        )
+        if is_closed:
+            realized.append(t)
+
+    pnls = [float(t.get("pnl") or 0.0) for t in realized]
+    gross_profit = round(sum(p for p in pnls if p > 0), 2)
+    gross_loss = round(sum(abs(p) for p in pnls if p < 0), 2)
+    net_pnl = round(gross_profit - gross_loss, 2)
+    wins = sum(1 for p in pnls if p > 0)
+    losses = sum(1 for p in pnls if p < 0)
     win_rate = round((wins / max(1, wins + losses)) * 100.0, 1) if (wins + losses) else 0.0
     return {
+        "gross_profit": gross_profit,
+        "gross_loss": gross_loss,
         "net_pnl": net_pnl,
         "wins": wins,
         "losses": losses,
         "win_rate": win_rate,
         "open_count": len(bot_state["open_positions"]),
+        "mode": active_mode,
     }
 
 
@@ -183,11 +204,19 @@ def _settle_expired_trades(spot: float, now: float):
         settle_ts = float(t.get("settle_ts") or 0)
         if status.startswith("OPEN") and settle_ts > 0 and now >= settle_ts:
             side = str(t.get("side", "UP")).upper()
+            is_live = str(t.get("mode", "")).upper() == "LIVE"
             won = None
-            if str(t.get("mode", "")).upper() == "LIVE":
+            if is_live:
                 s_val = discovery.fetch_settlement(t.get("slug", ""))
                 if s_val is not None:
                     won = (s_val >= 0.5) if side == "UP" else (s_val < 0.5)
+                elif now < settle_ts + 300:
+                    continue
+                else:
+                    t["pnl"] = 0.0
+                    t["status"] = "SETTLED_UNVERIFIED"
+                    changed = True
+                    continue
             if won is None:
                 start_spot = float(t.get("window_start_spot") or t.get("spot") or spot)
                 went_up = spot >= start_spot
@@ -265,6 +294,10 @@ def _evaluate_scalp_exits(market, book, spot, now):
             spot_price=spot,
             reason=reason,
         )
+        if not res.get("ok"):
+            remaining.append(pos)
+            continue
+
         pnl_usd = float(res.get("pnl_usd") or 0.0)
         if pnl_usd < 0:
             bot_state["loss_streak"] += 1
@@ -282,19 +315,17 @@ def _evaluate_scalp_exits(market, book, spot, now):
             "time": datetime.now().strftime("%H:%M:%S"),
             "slug": slug,
             "side": f"SELL_{side}",
-            "price": current_bid,
+            "price": float(res.get("exit_price") or current_bid),
             "spot": spot,
             "window_start_spot": spot,
             "stake": float(pos.get("stake_usd") or cfg.stake_usd),
             "mode": res["mode"],
             "status": res["status"],
-            "purchased": bool(res.get("ok")),
+            "purchased": True,
             "pnl": pnl_usd,
             "settle_ts": 0,
         })
         changed = True
-        if not res.get("ok"):
-            remaining.append(pos)
 
     bot_state["open_positions"] = remaining
     if changed:
@@ -601,6 +632,7 @@ def api_reset_breaker():
         bot_state["breaker_tripped"] = False
         bot_state["breaker_reason"] = ""
         bot_state["loss_streak"] = 0
+        bot_state["peak_daily_pnl"] = 0.0
     return jsonify({"ok": True})
 
 
